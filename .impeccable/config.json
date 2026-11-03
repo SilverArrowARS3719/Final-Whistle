@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "border-accent-on-rounded",
+        "value": "*",
+        "files": [
+          "src/index.css"
+        ],
+        "createdAt": "2026-11-01T12:26:14.156Z",
+        "reason": "Claude triage: L317 .pointer is a zero-size CSS border triangle (spinner pointer), not a rounded card with an accent border"
+      }
+    ]
+  }
+}
