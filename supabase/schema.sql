@@ -124,6 +124,7 @@ create table if not exists public.game_invites (
   created_at timestamptz not null default now(),
   unique (game_id, to_user)
 );
+alter table public.game_invites add column if not exists mode text; -- which game mode the invite is for
 alter table public.game_invites enable row level security;
 drop policy if exists "see own invites" on public.game_invites;
 create policy "see own invites" on public.game_invites for select to authenticated using (auth.uid() in (from_user, to_user));
@@ -143,12 +144,23 @@ $$;
 
 -- ---------- results (feeds the friends leaderboard) ----------
 create table if not exists public.results (
-  game_id uuid primary key references public.games on delete cascade,
+  id bigint generated always as identity primary key,
+  game_id uuid not null references public.games on delete cascade, -- one game can hold several rematches
   mode text not null,
   winner uuid references public.profiles on delete set null,
   players uuid[] not null,
   created_at timestamptz not null default now()
 );
+-- upgrade from the first version, where game_id was the primary key (one result per game, so no rematches)
+alter table public.results add column if not exists id bigint generated always as identity;
+do $$ begin
+  if exists (select 1 from information_schema.key_column_usage where table_schema = 'public' and table_name = 'results'
+             and constraint_name = 'results_pkey' and column_name = 'game_id') then
+    alter table public.results drop constraint results_pkey;
+    alter table public.results add primary key (id);
+  end if;
+end $$;
+create index if not exists results_players on public.results using gin (players);
 alter table public.results enable row level security;
 drop policy if exists "results readable" on public.results;
 create policy "results readable" on public.results for select to authenticated using (true);
@@ -170,6 +182,112 @@ language sql security definer set search_path = public as $$
   from circle c join profiles p on p.id = c.id
   order by wins desc, played asc, p.username;
 $$;
+
+-- ---------- seasons: a league between friends ----------
+-- Every online game finished during the season counts if at least two members played in it.
+-- Champion 3 points, everyone else who played 1. Ties broken by wins, then fewer games.
+create table if not exists public.seasons (
+  id uuid primary key default gen_random_uuid(),
+  code text unique not null,
+  name text not null check (length(name) between 1 and 40),
+  owner uuid not null references public.profiles on delete cascade,
+  starts_at timestamptz not null default now(),
+  ends_at timestamptz not null
+);
+create table if not exists public.season_members (
+  season_id uuid not null references public.seasons on delete cascade,
+  user_id uuid not null references public.profiles on delete cascade,
+  joined_at timestamptz not null default now(),
+  primary key (season_id, user_id)
+);
+-- no direct table access: everything goes through the functions below, which check membership
+alter table public.seasons enable row level security;
+alter table public.season_members enable row level security;
+
+create or replace function public.create_season(p_name text, p_weeks int) returns public.seasons
+language plpgsql security definer set search_path = public as $$
+declare s public.seasons; c text;
+begin
+  if not exists (select 1 from profiles where id = auth.uid()) then raise exception 'Pick a username first'; end if;
+  if p_weeks not between 1 and 52 then raise exception 'A season lasts 1 to 52 weeks'; end if;
+  loop
+    c := '';
+    for i in 1..6 loop c := c || substr('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 1 + floor(random() * 32)::int, 1); end loop;
+    exit when not exists (select 1 from seasons where code = c);
+  end loop;
+  insert into seasons (code, name, owner, ends_at) values (c, trim(p_name), auth.uid(), now() + make_interval(weeks => p_weeks)) returning * into s;
+  insert into season_members (season_id, user_id) values (s.id, auth.uid());
+  return s;
+end $$;
+
+create or replace function public.join_season(p_code text) returns public.seasons
+language plpgsql security definer set search_path = public as $$
+declare s public.seasons;
+begin
+  if not exists (select 1 from profiles where id = auth.uid()) then raise exception 'Pick a username first'; end if;
+  select * into s from seasons where code = upper(trim(p_code));
+  if s is null then raise exception 'No season with that code'; end if;
+  if s.ends_at < now() then raise exception 'That season has finished'; end if;
+  if (select count(*) from season_members where season_id = s.id) >= 20 then raise exception 'That season is full (20 players)'; end if;
+  insert into season_members (season_id, user_id) values (s.id, auth.uid()) on conflict do nothing;
+  return s;
+end $$;
+
+-- Any member may add one of their own friends.
+create or replace function public.add_to_season(p_season uuid, p_user uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from season_members where season_id = p_season and user_id = auth.uid()) then raise exception 'Not in this season'; end if;
+  if not exists (select 1 from friendships where status = 'accepted'
+                 and least(requester, addressee) = least(auth.uid(), p_user) and greatest(requester, addressee) = greatest(auth.uid(), p_user))
+  then raise exception 'You can only add friends'; end if;
+  insert into season_members (season_id, user_id) values (p_season, p_user) on conflict do nothing;
+end $$;
+
+create or replace function public.leave_season(p_season uuid) returns void
+language sql security definer set search_path = public as $$
+  delete from season_members where season_id = p_season and user_id = auth.uid();
+$$;
+
+create or replace function public.my_seasons() returns table (id uuid, code text, name text, owner uuid, starts_at timestamptz, ends_at timestamptz, members bigint)
+language sql security definer set search_path = public as $$
+  select s.id, s.code, s.name, s.owner, s.starts_at, s.ends_at, (select count(*) from season_members x where x.season_id = s.id)
+  from seasons s join season_members m on m.season_id = s.id and m.user_id = auth.uid()
+  order by s.ends_at < now(), s.ends_at;
+$$;
+
+-- The league table. form = last five results, newest first ('W' or 'L'); streak = current run of wins.
+create or replace function public.season_table(p_season uuid)
+returns table (user_id uuid, username citext, played int, wins int, points int, streak int, best_streak int, form text, week_points int)
+language plpgsql security definer set search_path = public as $$
+declare s public.seasons; m record; outcomes boolean[]; stamps timestamptz[]; run int; best int; cur int;
+begin
+  select * into s from seasons where id = p_season;
+  if s is null or not exists (select 1 from season_members where season_id = p_season and season_members.user_id = auth.uid()) then
+    raise exception 'Not in this season';
+  end if;
+  for m in select sm.user_id as uid, p.username as uname from season_members sm join profiles p on p.id = sm.user_id where sm.season_id = p_season loop
+    select coalesce(array_agg(r.winner = m.uid order by r.created_at desc), '{}'), coalesce(array_agg(r.created_at order by r.created_at desc), '{}')
+      into outcomes, stamps
+    from results r
+    where m.uid = any(r.players) and r.created_at between s.starts_at and s.ends_at
+      and (select count(*) from season_members x where x.season_id = p_season and x.user_id = any(r.players)) >= 2;
+    run := 0; best := 0; cur := null;
+    for i in 1..coalesce(array_length(outcomes, 1), 0) loop
+      if outcomes[i] then run := run + 1; best := greatest(best, run);
+      else if cur is null then cur := run; end if; run := 0; end if;
+    end loop;
+    user_id := m.uid; username := m.uname;
+    played := coalesce(array_length(outcomes, 1), 0);
+    wins := (select count(*) from unnest(outcomes) o where o);
+    points := wins * 3 + (played - wins);
+    streak := coalesce(cur, run);
+    best_streak := best;
+    form := (select coalesce(string_agg(case when o then 'W' else 'L' end, '' order by n), '') from unnest(outcomes[1:5]) with ordinality as t(o, n));
+    week_points := (select coalesce(sum(case when o then 3 else 1 end), 0) from unnest(outcomes, stamps) as t(o, ts) where ts > now() - interval '7 days');
+    return next;
+  end loop;
+end $$;
 
 -- Live notifications for friend requests and invites.
 do $$ begin

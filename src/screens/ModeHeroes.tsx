@@ -152,7 +152,7 @@ export function ChaosHero({ onStart }: { onStart: () => void }) {
   return (
     <div className="mh chaos">
       <Backdrop src="/img/chaos.jpg" />
-      <Hero title="Every round," accent="new rules." lede="A normal draft until a Chaos Card flips. Only Brazilians, steal a rival's player, a reversed pick order: it hits everyone at once." cta="Flip the first card" onStart={onStart}>
+      <Hero title="Every round," accent="new rules." lede="Every round, each player is dealt their own Chaos Card. You might get Brazilians only while your mate gets World Champions only. Pure luck of the draw." cta="Flip the first card" onStart={onStart}>
         <div className="fan-cards">
           <AnimatePresence mode="popLayout">
             {hand.map((a, k) => (
@@ -181,7 +181,7 @@ export function ChaosHero({ onStart }: { onStart: () => void }) {
             <div className="card-strip">
               {CARDS.filter((c) => c.category === cat).map((c, i) => (
                 <motion.div key={c.id} {...reveal(i % 6)}>
-                  <CardFace a={{ card: c, ctx: { era: '90s', nation: 'France', league: 'Serie A' } }} small />
+                  <CardFace a={{ card: c, ctx: { era: '90s', nation: 'France', league: 'Serie A', letter: 'M' } }} small />
                 </motion.div>
               ))}
             </div>
@@ -192,7 +192,7 @@ export function ChaosHero({ onStart }: { onStart: () => void }) {
       <section className="mh-split">
         <motion.div className="stack" {...reveal()}>
           <h2>Rarer cards break more.</h2>
-          <p className="dim">Steal and Pass It On are legendary: at most one per draft. Never two wild cards in a row, and every restriction is checked so nobody is left with nothing to pick.</p>
+          <p className="dim">Steal is legendary: at most one each per draft. Table cards (Reverse, Shield, Pass It On) sometimes land on top of everyone's own card, at most twice a game. Never two wild cards in a row, and every restriction is checked so nobody is left with nothing to pick.</p>
         </motion.div>
         <motion.div className="odds" {...reveal(1)}>
           {odds.map(([r, w]) => (

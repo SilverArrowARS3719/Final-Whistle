@@ -8,7 +8,7 @@ Takes about 10 minutes. You only do this once.
 
 ## 2. Create the database tables
 1. In the project, open **SQL Editor** → **New query**.
-2. Open `supabase/schema.sql` from this folder, copy all of it, paste it in, and click **Run**. It should say "Success". (Running it again later is safe.)
+2. Open `supabase/schema.sql` from this folder, copy all of it, paste it in, and click **Run**. It should say "Success". (Running it again later is safe.) **When the game gets new online features (like Seasons and rematches), run the whole file again** so the database has the new tables.
 
 ## 3. Turn on sign-in
 **Email + password**

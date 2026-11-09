@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { SMALL_SIDED } from './data/formations'
 import { AnimatePresence, motion } from 'motion/react'
 import { PLAYERS, type Player } from './data/players'
@@ -23,7 +23,7 @@ import { DEFAULT_CHAOS_SETTINGS, type ChaosSettings } from './engine/chaos'
 import Home from './screens/Home'
 import { SotHero, ChaosHero, AuctionHero } from './screens/ModeHeroes'
 import { ArrowLeft, House } from '@phosphor-icons/react'
-import { clearSaved, usePersist } from './engine/persist'
+import { StoreContext, usePersist } from './engine/persist'
 import { APP_NAME } from './engine/config'
 import Setup from './screens/Setup'
 import Spinner from './screens/Spinner'
@@ -34,6 +34,8 @@ import DraftDone from './screens/DraftDone'
 import TacticsScreen from './screens/Tactics'
 import Match from './screens/Match'
 import Tournament from './screens/Tournament'
+
+const MODE_NAMES: Record<Mode, string> = { xi: 'All-Time XI', sot: 'Stick or Twist', chaos: 'Chaos Draft', auction: 'Auction' }
 
 type Screen = 'login' | 'modes' | 'home' | 'setup' | 'spinner' | 'formation' | 'size' | 'draft' | 'handover' | 'modedraft' | 'done' | 'tournament' | 'tactics' | 'match'
 
@@ -52,6 +54,7 @@ type Props = {
 
 export default function App({ account, invites, onFriends, onPlayOnline, onLeaveOnline, onRecordResult, onSignOut }: Props) {
   const online = !!onLeaveOnline
+  const store = useContext(StoreContext)
   const seat = useOnline()
   const [profile, setProfile] = useState<Profile | null>(loadProfile)
   // a match replay isn't saved, so a refresh during one goes back to its tactics screen
@@ -89,7 +92,7 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
 
   // every mode ends its draft here: bench from the leftover pool, fixtures, then Done Choosing
   const finishDraft = (final: Team[], gone: Set<number>) => {
-    clearSaved('sot:'); clearSaved('chaos:'); clearSaved('auction:')
+    store.clear('sot:'); store.clear('chaos:'); store.clear('auction:')
     const rng = makeRng(Date.now())
     const used = new Set([...gone, ...final.flatMap((t) => t.picks.map((p) => p?.id))])
     setTeams(fillBench(final, PLAYERS.filter((x) => !used.has(x.id)), rng))
@@ -129,7 +132,7 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
 
   // throw the game away (new game or play again)
   const discard = (to: Screen) => {
-    clearSaved()
+    store.clear()
     setTeams([])
     setPickNo(0)
     setFixtures([])
@@ -150,6 +153,14 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
     discard('home')
     setMode(m)
   }
+
+  // same players, same mode, same settings: straight back to the spinner for a new pick order
+  const rematch = () => {
+    const keep = { names, mode, chaos, auctionKind }
+    discard('spinner')
+    setNames(keep.names); setMode(keep.mode); setChaos(keep.chaos); setAuctionKind(keep.auctionKind)
+  }
+  const kicker = MODE_NAMES[mode]
 
   const views: Record<Screen, () => ReactNode> = {
     login: () => <Login onDone={(p) => { setProfile(p); setScreen('modes') }} onAccount={() => setScreen('modes')} />,
@@ -198,7 +209,17 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
       )
     },
     done: () => <DraftDone teams={teams} onAllDone={() => setScreen('tournament')} />,
-    tournament: () => <Tournament teams={teams} fixtures={fixtures} onNext={() => setScreen('tactics')} onReset={() => (online ? onLeaveOnline!(true) : discard('home'))} />,
+    tournament: () => (
+      <Tournament
+        teams={teams}
+        fixtures={fixtures}
+        kicker={kicker}
+        onNext={() => setScreen('tactics')}
+        onRematch={rematch}
+        onReset={() => (online ? onLeaveOnline!(true) : discard('home'))}
+        resetLabel={online ? 'Leave the game' : 'Pick another mode'}
+      />
+    ),
     tactics: () => current >= 0 && (
       <TacticsScreen
         teams={teams}
@@ -208,7 +229,7 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
         onKickOff={kickOff}
       />
     ),
-    match: () => !match ? views.tactics() : <Match result={match} teams={[teams[fixtures[current].a], teams[fixtures[current].b]]} seats={[fixtures[current].a, fixtures[current].b]} onFinish={finishMatch} />,
+    match: () => !match ? views.tactics() : <Match result={match} teams={[teams[fixtures[current].a], teams[fixtures[current].b]]} seats={[fixtures[current].a, fixtures[current].b]} kicker={`${kicker} · ${fixtures[current].stage}`} onFinish={finishMatch} />,
   }
   const steps: [string, Screen[]][] = [
     ['Setup', ['setup', 'spinner', 'formation', 'size']],

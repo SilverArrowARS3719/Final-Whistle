@@ -89,6 +89,13 @@ Hirving Lozano:3sbn|Donyell Malen:5zbn|Randal Kolo Muani:6zbn|Savinho:4zbn|Antoi
 Richarlison:4zbn|Igor Paixão:4zbn|Noa Lang:4cbn|Niclas Füllkrug:2zdn|Deniz Undav:2sbb|Jamie Gittens:5zbn|Dominic Solanke:5zbn|Ayoze Pérez:2sdb
 Antony:4zbn|Estêvão:4zbn|Brian Brobbey:5zbn|Ayase Ueda:2sbn|Endrick:4zbn|Mika Godts:1snn|Wout Weghorst:1sln|Arnaud Kalimuendo:5zbn|Ricardo Pepi:3sbn
 Elye Wahi:6zbn
+Ben Foster:1xnn|Asmir Begović:2sds|Łukasz Fabiański:1snn|Jussi Jääskeläinen:1zns|Kasey Keller:1sln|Tim Krul:1wln|Mat Ryan:2sdn|Sergio Asenjo:2sds
+Antonio Mirante:2xds|Robert Green:1snn|Heurelho Gomes:4zbb|Alex Manninger:1snn|Wayne Hennessey:1sdn|Angus Gunn:1snn|Scott Carson:1znn|Boaz Myhill:1znn
+Phil Jagielka:1znn|James Tarkowski:1znb|Mamadou Sakho:6arb|Federico Fazio:2sdb|Robert Huth:1znn|Wes Morgan:6xbb|Nicolas Nkoulou:6zbb|Christopher Samba:6xbn
+Ryan Shawcross:1zns|Ben Mee:1snb|Daniele Bonera:2sds|Cristián Zapata:5zbb|Craig Dawson:1snb|Shane Duffy:1znb|Gareth McAuley:1xnn|Jamaal Lascelles:4zbb|Titus Bramble:6zbn
+Peter Crouch:1snnn|Emile Heskey:6xbn|Danny Ings:1sdb|Chris Wood:1snb|Roque Santa Cruz:2wds|Michu:2sdb|Bas Dost:1sln|Andy Carroll:1pnb|Marco Borriello:2sbs
+Kevin Davies:1znn|Troy Deeney:5xbb|Rickie Lambert:1znn|Glenn Murray:1xnn|Charlie Austin:1sns|Marouane Chamakh:3cbs|Amr Zaki:4zbs|Ashley Barnes:1snb
+Nikola Žigić:1sdnn|Grant Holt:1znb|Pierre-Michel Lasogga:2sdn
 `
 
 export const LOOKS: Record<string, Look> = Object.fromEntries(

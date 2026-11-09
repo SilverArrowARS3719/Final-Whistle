@@ -1,3 +1,6 @@
+import { sfx } from '../engine/sfx'
+import ShareResult from '../components/ShareResult'
+import type { ResultCard } from '../engine/shareCard'
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { ArrowRight, ArrowsLeftRight, CheckCircle, FastForward, SoccerBall, WarningCircle, X } from '@phosphor-icons/react'
@@ -47,7 +50,20 @@ const CELEBRATIONS = [
   { initial: { scale: 0.3, rotate: -8, opacity: 0 }, animate: { scale: 1, rotate: 0, opacity: 1 }, exit: { scale: 1.3, opacity: 0 }, transition: { type: 'spring' as const, stiffness: 260, damping: 14 } },
 ]
 
-export default function Match({ result, teams, seats, onFinish }: { result: MatchResult; teams: [Team, Team]; seats: [number, number]; onFinish: () => void }) {
+export function matchCard(result: MatchResult, kicker: string): ResultCard {
+  const [na, nb] = result.names
+  const goals = (side: 0 | 1) => result.events.filter((e) => e.type === 'goal' && e.side === side).map((e) => `${e.text.replace(/^GOAL! /, '').replace(/ \d+-\d+$/, '')} ${e.clock}`)
+  const best = result.snapshots.at(-1)!.flatMap((side) => side).filter((l) => !l.off).sort((a, b) => b.rating - a.rating)[0]
+  return {
+    kicker,
+    rows: [{ name: na, value: String(result.score[0]), win: result.winner === 0 }, { name: nb, value: String(result.score[1]), win: result.winner === 1 }],
+    note: result.pens ? `${result.names[result.winner]} win ${Math.max(...result.pens)}-${Math.min(...result.pens)} on penalties` : result.wentToET ? 'After extra time' : undefined,
+    lists: [{ title: `${na} goals`, items: goals(0).length ? goals(0) : ['None'] }, { title: `${nb} goals`, items: goals(1).length ? goals(1) : ['None'] }],
+    star: best && `Player of the match: ${best.name} ${best.rating.toFixed(1)}`,
+  }
+}
+
+export default function Match({ result, teams, seats, kicker, onFinish }: { result: MatchResult; teams: [Team, Team]; seats: [number, number]; kicker: string; onFinish: () => void }) {
   const last = result.labels.length - 1
   const [step, setStep] = useState(0)
   const [tab, setTab] = useState<(typeof TABS)[number]>('Stats')
@@ -61,8 +77,10 @@ export default function Match({ result, teams, seats, onFinish }: { result: Matc
 
   useEffect(() => {
     const g = result.events.find((e) => e.type === 'goal' && e.step === step)
-    if (g) setFlash(g)
-  }, [step, result.events])
+    if (g) { setFlash(g); sfx.goal() }
+    if (step === 0) sfx.whistle()
+    if (step === last) sfx.whistle(true)
+  }, [step, result.events, last])
 
   // own effect so the next clock tick doesn't cancel the hide timer
   useEffect(() => {
@@ -137,7 +155,10 @@ export default function Match({ result, teams, seats, onFinish }: { result: Matc
             <h3 className="accent">
               {result.names[result.winner]} win{result.pens ? ' on penalties' : result.wentToET ? ' after extra time' : ''}
             </h3>
-            <HostOnly><button className="btn primary lg" onClick={onFinish}>Continue <ArrowRight weight="bold" /></button></HostOnly>
+            <div className="row" style={{ gap: 10 }}>
+              <ShareResult card={matchCard(result, kicker)} />
+              <HostOnly><button className="btn primary lg" onClick={onFinish}>Continue <ArrowRight weight="bold" /></button></HostOnly>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

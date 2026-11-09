@@ -3,6 +3,7 @@ import { diff, reviveDeep, setIn, type Op, type Store } from '../engine/persist'
 import { supabase } from './supabase'
 
 export type Seat = { id: string; username: string }
+export type Reaction = { emoji: string; from: string; id: number }
 export type GameRow = { id: string; code: string; host: string; mode: string; status: 'lobby' | 'playing' | 'finished'; players: Seat[]; state: Record<string, unknown> }
 
 const fail = (e: { message: string } | null) => { if (e) throw new Error(e.message) }
@@ -24,12 +25,19 @@ export async function fetchGame(id: string): Promise<GameRow | null> {
   const { data } = await supabase!.from('games').select('*').eq('id', id).maybeSingle()
   return data as GameRow | null
 }
-export async function inviteToGame(gameId: string, from: string, to: string) {
-  const { error } = await supabase!.from('game_invites').insert({ game_id: gameId, from_user: from, to_user: to })
+export async function inviteToGame(gameId: string, from: string, to: string, mode?: string) {
+  const { error } = await supabase!.from('game_invites').insert({ game_id: gameId, from_user: from, to_user: to, mode })
   if (error && error.code !== '23505') throw new Error(error.message) // already invited is fine
 }
 export async function recordResult(game: GameRow, winnerSeat: number) {
   await supabase!.from('results').insert({ game_id: game.id, mode: game.mode, winner: game.players[winnerSeat]?.id ?? null, players: game.players.map((p) => p.id) })
+}
+
+/** Games I'm in that haven't finished, newest first, so I can rejoin them. */
+export async function myGames(me: string): Promise<GameRow[]> {
+  const { data } = await supabase!.from('games').select('id, code, host, mode, status, players, updated_at')
+    .neq('status', 'finished').contains('players', JSON.stringify([{ id: me }])).order('updated_at', { ascending: false }).limit(10)
+  return (data ?? []) as unknown as GameRow[]
 }
 
 // Live updates for one row (lobby joins/leaves, start). Returns an unsubscribe.
@@ -50,6 +58,7 @@ export class OnlineStore implements Store {
   private state: Record<string, unknown>
   private known: Set<string>
   private subs = new Set<() => void>()
+  private reactions = new Set<(r: Reaction) => void>()
   private queue: Op[] = []
   private channel: RealtimeChannel
   readonly gameId: string
@@ -62,14 +71,31 @@ export class OnlineStore implements Store {
     this.channel = supabase!
       .channel(`game:${game.id}`, { config: { broadcast: { self: false, ack: false } } })
       .on('broadcast', { event: 'ops' }, ({ payload }) => this.apply(payload.ops as Op[], true))
+      .on('broadcast', { event: 'react' }, ({ payload }) => this.reactions.forEach((f) => f(payload as Reaction)))
       .subscribe((status) => {
         // after a reconnect, pull the saved state in case we missed broadcasts
         if (status === 'SUBSCRIBED') this.resync()
       })
   }
 
+  // a cleared key is stored as null (the server can only set paths), which reads as "never set"
   get(key: string) {
-    return this.state[key]
+    return this.state[key] ?? undefined
+  }
+
+  clear(scope = '') {
+    Object.keys(this.state).filter((k) => k.startsWith(scope) && this.state[k] != null).forEach((k) => this.set(k, null))
+  }
+
+  /** Emoji reactions are fire-and-forget: broadcast only, never saved. */
+  react(emoji: string, from: string) {
+    const r = { emoji, from, id: Math.random() }
+    this.reactions.forEach((f) => f(r))
+    this.channel.send({ type: 'broadcast', event: 'react', payload: r })
+  }
+  onReact(fn: (r: Reaction) => void) {
+    this.reactions.add(fn)
+    return () => { this.reactions.delete(fn) }
   }
 
   set(key: string, value: unknown) {

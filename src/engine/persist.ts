@@ -13,6 +13,8 @@ export interface Store {
   // offline any device may write a missing key's starting value; online only the host does, so random
   // starting values (a Chaos card, an auction lot) are decided once
   canInit: boolean
+  /** Forget every key starting with `scope` (everything when empty). */
+  clear(scope?: string): void
 }
 
 // Player and Chaos-card objects are re-linked to the shared originals: game code compares them by identity,

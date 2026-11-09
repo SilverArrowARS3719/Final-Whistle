@@ -12,11 +12,13 @@ import { onlineReady } from './online/supabase'
 import Friends from './screens/Friends'
 import Lobby from './screens/Lobby'
 import Login from './screens/Login'
+import Seasons from './screens/Seasons'
+import Reactions from './components/Reactions'
 
 const SAVED = 'fw-online-game' // the online game this device is part of, so a refresh rejoins it
 const saved = { get: () => { try { return localStorage.getItem(SAVED) } catch { return null } }, set: (id: string | null) => { try { if (id) localStorage.setItem(SAVED, id); else localStorage.removeItem(SAVED) } catch { /* not remembered */ } } }
 
-type View = 'app' | 'friends' | 'lobby'
+type View = 'app' | 'friends' | 'lobby' | 'seasons'
 
 export default function Root() {
   const { session, account, setAccount, loading } = useAccount()
@@ -68,6 +70,11 @@ export default function Root() {
     try { open(await createGame(mode)) } catch (e) { setNotice((e as Error).message) }
   }
   const join = async (code: string) => open(await joinByCode(code))
+  const challenge = async (friendId: string, mode: string) => {
+    const g = await createGame(mode)
+    await inviteToGame(g.id, account!.id, friendId, mode)
+    open(g)
+  }
 
   const start = () => {
     if (!lobby) return
@@ -110,17 +117,18 @@ export default function Root() {
       <div className="shell">
         <header className="topbar">
           <div className="row" style={{ gap: 14 }}>
-            {view === 'friends' && <button className="btn ghost sm" onClick={() => setView('app')}><ArrowLeft weight="bold" /> Back</button>}
+            {(view === 'friends' || view === 'seasons') && <button className="btn ghost sm" onClick={() => setView(view === 'seasons' ? 'friends' : 'app')}><ArrowLeft weight="bold" /> Back</button>}
             <span className="wordmark">{APP_NAME.split(' ')[0]} <i>{APP_NAME.split(' ').slice(1).join(' ')}</i></span>
           </div>
         </header>
-        {view === 'friends' && <Friends me={account} social={social} onJoin={join} />}
+        {view === 'friends' && <Friends me={account} social={social} onJoin={join} onChallenge={challenge} onRejoin={open} onSeasons={() => setView('seasons')} />}
+        {view === 'seasons' && <Seasons me={account} friends={social.friends} />}
         {view === 'lobby' && lobby && (
           <Lobby
             game={lobby}
             me={account.id}
             friends={social.friends}
-            onInvite={(id) => inviteToGame(lobby.id, account.id, id)}
+            onInvite={(id) => inviteToGame(lobby.id, account.id, id, lobby.mode)}
             onStart={start}
             onLeave={() => { leaveGame(lobby.id); setLobby(null); saved.set(null); setPending(null); setView('app') }}
           />
@@ -147,6 +155,7 @@ export default function Root() {
           </button>
         )}
         {notice && <p className="online-pill toast" role="status" onClick={() => setNotice('')}>{notice}</p>}
+        {online && account && <Reactions store={online.store} me={account.username} />}
       </OnlineContext.Provider>
     </StoreContext.Provider>
   )

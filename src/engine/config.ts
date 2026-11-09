@@ -9,11 +9,12 @@ export const BENCH_SIZE = 3
 export const MATCH_PLAYBACK_MS = 30_000
 
 // Stick or Twist
-export const SOT = { capMargin: 1.5, twists: 5, decisionSeconds: 15, perfectWindow: 5, bustReplaceMax: 74 }
+export const SOT = { capMargin: 2.25, twists: 5, decisionSeconds: 15, perfectWindow: 5, bustReplaceMax: 74 }
 // Chaos Draft
 export const CHAOS = {
   weights: { common: 0.6, rare: 0.3, legendary: 0.1 },
   speedSeconds: 10, maxWild: 3, maxLegendary: 1, minValid: 3, redraws: 10, sensiblePenalty: 20,
+  eventChance: 0.2, maxEvents: 2, // table cards (reverse, shield, pass it on) per game
 }
 // Auction (budgets in £M)
 export const AUCTION = { budgetPer5: 20, minBid: 0.5, step: 0.5, maxUnsoldInARow: 3, leftoverMax: 74 }

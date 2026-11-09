@@ -13,7 +13,7 @@ import type { Tactics } from './tactics'
 let uid = 10_000
 // Synthetic player with zero chemistry links.
 const fake = (ovr: number, pos: Pos): Player => ({
-  id: uid++, name: `P${uid}`, ovr, positions: [pos], nation: `N${uid}`, clubs: [], leagues: [], era: `E${uid}`,
+  id: uid++, name: `P${uid}`, ovr, positions: [pos], nation: `N${uid}`, clubs: [], leagues: [], era: `E${uid}`, wc: false,
 })
 function team(ovr: number, formation = '4-3-3', t: Partial<Tactics> = {}, override?: (pos: Pos, i: number) => Player): Team {
   const tm = newTeam(`T${ovr}`, formation)
@@ -68,7 +68,7 @@ describe('data', () => {
   it('has unique names and sane ratings', () => {
     expect(new Set(PLAYERS.map((p) => p.name)).size).toBe(PLAYERS.length)
     expect(PLAYERS.length).toBeGreaterThanOrEqual(100)
-    for (const p of PLAYERS) expect(p.ovr).toBeGreaterThan(70)
+    for (const p of PLAYERS) expect(p.ovr).toBeGreaterThanOrEqual(65)
   })
   it('chemistry is small: max +3', () => {
     const xi = PLAYERS.filter((p) => p.nation === 'France').slice(0, 11)
@@ -239,24 +239,46 @@ describe('stick or twist', () => {
 })
 
 describe('chaos cards', () => {
-  it('deck rules hold over 1,000 random drafts', async () => {
-    const { drawCard, DEFAULT_CHAOS_SETTINGS } = await import('./chaos')
+  it('deck rules hold per player over 1,000 random drafts', async () => {
+    const { drawCard, drawEvent, isTable, DEFAULT_CHAOS_SETTINGS } = await import('./chaos')
+    let differ = 0
     for (let d = 0; d < 1000; d++) {
       const rng = makeRng(d + 11)
       const teams = [newTeam('A', '4-3-3'), newTeam('B', '4-4-2')]
       let pool = [...PLAYERS]
-      const hist: import('./chaos').Card[] = []
+      const hist: import('./chaos').Card[][] = [[], []]
+      const events: import('./chaos').Card[] = []
       for (let r = 0; r < 11; r++) {
-        const { card } = drawCard(hist, r, teams, pool, DEFAULT_CHAOS_SETTINGS, rng)
-        if (r === 0) expect(card.category).not.toBe('wild')
-        if (hist.at(-1)?.category === 'wild') expect(card.category).not.toBe('wild')
-        if (card.id !== 'calm') expect(hist).not.toContain(card)
-        hist.push(card)
+        const dealt = teams.map((t, i) => drawCard(hist[i], r, t, pool, DEFAULT_CHAOS_SETTINGS, rng).card)
+        if (dealt[0] !== dealt[1]) differ++
+        dealt.forEach((card, i) => {
+          expect(isTable(card)).toBe(false)
+          if (r === 0) expect(card.category).not.toBe('wild')
+          if (hist[i].at(-1)?.category === 'wild') expect(card.category).not.toBe('wild')
+          if (card.id !== 'calm') expect(hist[i]).not.toContain(card)
+          hist[i].push(card)
+        })
+        const ev = drawEvent(events, r, DEFAULT_CHAOS_SETTINGS, rng)
+        if (ev) { expect(r).toBeGreaterThan(0); expect(events).not.toContain(ev.card); events.push(ev.card) }
         for (const t of teams) { const p = pool[Math.floor(rng() * pool.length)]; t.picks[r] = p; pool = pool.filter((x) => x !== p) }
       }
-      expect(hist.filter((c) => c.category === 'wild').length).toBeLessThanOrEqual(3)
-      expect(hist.filter((c) => c.rarity === 'legendary').length).toBeLessThanOrEqual(1)
+      for (const h of hist) {
+        expect(h.filter((c) => c.category === 'wild').length).toBeLessThanOrEqual(3)
+        expect(h.filter((c) => c.rarity === 'legendary').length).toBeLessThanOrEqual(1)
+      }
+      expect(events.length).toBeLessThanOrEqual(2)
+      expect(events.filter((c) => c.rarity === 'legendary').length).toBeLessThanOrEqual(1)
     }
+    expect(differ / 11000).toBeGreaterThan(0.8) // players almost always get different cards
+  })
+  it('world cup and depth data are sound', async () => {
+    const { WORLD_CUP_WINNERS } = await import('../data/honours')
+    const names = new Set(PLAYERS.map((p) => p.name))
+    expect(names.size).toBe(PLAYERS.length) // no duplicate players
+    for (const n of WORLD_CUP_WINNERS) expect(names, n).toContain(n)
+    for (const pos of ['GK', 'CB', 'ST'] as Pos[]) expect(PLAYERS.filter((p) => p.positions[0] === pos && p.ovr < 75).length).toBeGreaterThanOrEqual(15)
+    expect(PLAYERS.find((p) => p.name === 'Lionel Messi')!.wc).toBe(true)
+    expect(PLAYERS.find((p) => p.name === 'Johan Cruyff')!.wc).toBe(false)
   })
   it('an impossible restriction falls back to Calm', async () => {
     const { drawCard, CARDS } = await import('./chaos')
@@ -265,7 +287,7 @@ describe('chaos cards', () => {
     const pool = PLAYERS.filter((p) => p.nation !== 'Brazil')
     const settings = { every: 1 as const, restriction: true, modifier: false, wild: false }
     const hist = CARDS.filter((c) => c.category === 'restriction' && !onlySamba.includes(c))
-    const a = drawCard(hist, 1, [newTeam('A', '4-3-3')], pool, settings, makeRng(1))
+    const a = drawCard(hist, 1, newTeam('A', '4-3-3'), pool, settings, makeRng(1))
     expect(a.card.id).toBe('calm')
   })
   it('steal and pass-it-on keep every player exactly once', async () => {
@@ -323,9 +345,11 @@ describe('auction', () => {
   it('leftovers are cheap where cheap players exist', async () => {
     const { leftover } = await import('./auction')
     for (let s = 1; s < 50; s++) {
-      expect(leftover('RB', PLAYERS, makeRng(s)).ovr).toBeLessThan(75) // Fresneda (74) exists
-      const cheapestST = Math.min(...PLAYERS.filter((p) => p.positions.includes('ST')).map((p) => p.ovr))
-      expect(leftover('ST', PLAYERS, makeRng(s)).ovr).toBe(cheapestST)
+      for (const pos of ['RB', 'GK', 'CB', 'ST'] as Pos[]) expect(leftover(pos, PLAYERS, makeRng(s)).ovr).toBeLessThan(75)
+      // with no cheap option left, the cheapest who can play there
+      const noCheap = PLAYERS.filter((p) => p.ovr >= 75)
+      const cheapestST = Math.min(...noCheap.filter((p) => p.positions.includes('ST')).map((p) => p.ovr))
+      expect(leftover('ST', noCheap, makeRng(s)).ovr).toBe(cheapestST)
     }
   })
   it('5- and 7-a-side matches always produce a winner', async () => {

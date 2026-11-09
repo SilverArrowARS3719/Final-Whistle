@@ -1,13 +1,16 @@
 import { PLAYERS, type Player, type Pos } from '../data/players'
+import { AFRICA, SOUTH_AMERICA } from '../data/honours'
 import { AUTOPICK_MAX_OVR, CHAOS } from './config'
 import { slotsOf, type Perk, type Team } from './draft'
 import { penalty } from './position'
 import { pick, weighted, type Rng } from './rng'
 
 // Chaos Cards: a modifier layer usable by any draft mode. Adding a card = adding one entry to CARDS.
+// Every player is dealt their own card each round; table cards (reverse, shield, pass it on) are an
+// occasional extra event that changes the round for everyone.
 export type Category = 'restriction' | 'modifier' | 'wild' | 'none'
 export type Rarity = 'common' | 'rare' | 'legendary'
-export type Ctx = { era?: string; nation?: string; league?: string }
+export type Ctx = { era?: string; nation?: string; league?: string; letter?: string }
 export type Effect = keyof Perk | 'reverse' | 'luckyDip' | 'speed' | 'steal' | 'shield' | 'passItOn'
 export type Card = {
   id: string
@@ -25,6 +28,7 @@ const ERAS = ['30s', '50s', '60s', '70s', '80s', '90s', '00s', '10s', '20s']
 const NATIONS = [...new Set(PLAYERS.map((p) => p.nation))]
 const LEAGUES = [...new Set(PLAYERS.flatMap((p) => p.leagues))]
 
+const initial = (p: Player) => p.name.normalize('NFD')[0].toUpperCase()
 const r = (id: string, name: string, rarity: Rarity, description: Card['description'], filter: Card['filter'], roll?: Card['roll']): Card =>
   ({ id, name, category: 'restriction', rarity, description, filter, roll })
 const fx = (id: string, name: string, category: Category, rarity: Rarity, effect: Effect | undefined, text: string): Card =>
@@ -41,17 +45,28 @@ export const CARDS: Card[] = [
   r('elite', 'Elite Only', 'rare', () => 'Minimum 88 OVR.', (p) => p.ovr >= 88),
   r('one-club', 'One-Club Hero', 'common', () => 'Only players who played for exactly one club.', (p) => p.clubs.length === 1),
   r('foreign-legion', 'Foreign Legion', 'common', () => 'Pick a nation nobody in your team is from yet.', (p, t) => !t.picks.some((q) => q?.nation === p.nation)),
+  r('world-champs', 'World Champions', 'rare', () => 'Only players who won the World Cup.', (p) => p.wc),
+  r('no-star', 'No Star on the Shirt', 'common', () => 'Only players who never won the World Cup.', (p) => !p.wc),
+  r('copa', 'Copa América', 'common', () => 'Only South American players.', (p) => SOUTH_AMERICA.has(p.nation)),
+  r('africa', 'Africa Cup', 'rare', () => 'Only African players.', (p) => AFRICA.has(p.nation)),
+  r('no-prem', 'No Premier League', 'common', () => 'Only players who never played in the Premier League.', (p) => !p.leagues.includes('Premier League')),
+  r('journeyman', 'Journeyman', 'common', () => 'Only players who played for 4 or more clubs.', (p) => p.clubs.length >= 4),
+  r('mid-table', 'Mid-Table', 'common', () => 'Only players rated 76 to 84.', (p) => p.ovr >= 76 && p.ovr <= 84),
+  r('bargain', 'Bargain Bin', 'rare', () => 'Maximum 74 OVR.', (p) => p.ovr <= 74),
+  r('alphabet', 'Alphabet Soup', 'common', (c) => `Only players whose name starts with ${c.letter}.`, (p, _t, _s, c) => initial(p) === c.letter, (rng) => ({ letter: pick(rng, [...'ABCDFGJKLMPRST']) })),
+  r('compatriot', 'Compatriot', 'common', () => 'Same nation as someone already in your team.', (p, t) => t.picks.some((q) => q?.nation === p.nation)),
+  r('old-teammates', 'Old Teammates', 'rare', () => 'Pick someone who shared a club with one of your players.', (p, t) => t.picks.some((q) => q && q.id !== p.id && q.clubs.some((c) => p.clubs.includes(c)))),
   r('wrong-foot', 'Wrong Foot', 'rare', () => 'Pick a player who is NOT natural in this slot. Normal penalties apply.', (p, _t, slot) => p.positions[0] !== slot),
-  fx('captain', "Captain's Armband", 'modifier', 'rare', 'captain', 'This round\'s pick is your captain: +3 OVR in the match.'),
-  fx('double-link', 'Double Link', 'modifier', 'rare', 'doubleLink', 'Chemistry links involving this round\'s pick count double.'),
-  fx('hot-head', 'Hot Head', 'modifier', 'common', 'hotHead', 'This round\'s picks are 3x as likely to see red.'),
-  fx('big-game', 'Big Game Player', 'modifier', 'common', 'bigGame', 'This round\'s pick gets +5 OVR in extra time and penalties.'),
-  fx('reverse', 'Reverse', 'wild', 'rare', 'reverse', 'Pick order is reversed this round.'),
-  fx('lucky-dip', 'Lucky Dip', 'wild', 'rare', 'luckyDip', 'Everyone\'s pick is chosen at random from valid players.'),
-  fx('speed', 'Speed Round', 'wild', 'common', 'speed', `Only ${CHAOS.speedSeconds} seconds per pick.`),
-  fx('steal', 'Steal', 'wild', 'legendary', 'steal', 'The first picker may steal one player from an opponent. The victim gets a random sub-80 replacement.'),
-  fx('shield', 'Shield', 'wild', 'rare', 'shield', 'Everyone may protect one player from steals and swaps for the rest of the game.'),
-  fx('pass-it-on', 'Pass It On', 'wild', 'legendary', 'passItOn', 'After this round, everyone hands their newest pick to the player on their left.'),
+  fx('captain', "Captain's Armband", 'modifier', 'rare', 'captain', 'Your pick this round is your captain: +3 OVR in the match.'),
+  fx('double-link', 'Double Link', 'modifier', 'rare', 'doubleLink', 'Chemistry links involving your pick this round count double.'),
+  fx('hot-head', 'Hot Head', 'modifier', 'common', 'hotHead', 'Your pick this round is 3x as likely to see red.'),
+  fx('big-game', 'Big Game Player', 'modifier', 'common', 'bigGame', 'Your pick this round gets +5 OVR in extra time and penalties.'),
+  fx('reverse', 'Reverse', 'wild', 'rare', 'reverse', 'Table card: pick order is reversed this round.'),
+  fx('lucky-dip', 'Lucky Dip', 'wild', 'rare', 'luckyDip', 'Your pick is chosen at random for you.'),
+  fx('speed', 'Speed Round', 'wild', 'common', 'speed', `Only ${CHAOS.speedSeconds} seconds for your pick.`),
+  fx('steal', 'Steal', 'wild', 'legendary', 'steal', 'Before you pick, you may steal one player from an opponent. They get a random sub-80 replacement.'),
+  fx('shield', 'Shield', 'wild', 'rare', 'shield', 'Table card: everyone may protect one player from steals and swaps for the rest of the game.'),
+  fx('pass-it-on', 'Pass It On', 'wild', 'legendary', 'passItOn', 'Table card: after this round, everyone hands their newest pick to the player on their left.'),
   fx('calm', 'Calm Before the Storm', 'none', 'common', undefined, 'No rule this round.'),
 ]
 export const CALM = CARDS.find((c) => c.id === 'calm')!
@@ -62,21 +77,24 @@ export const DEFAULT_CHAOS_SETTINGS: ChaosSettings = { every: 1, restriction: tr
 export const isValid = (p: Player, team: Team, slot: Pos, a: Active | null) => !a?.card.filter || a.card.filter(p, team, slot, a.ctx)
 const sensible = (p: Player, slot: Pos) => penalty(p, slot) < CHAOS.sensiblePenalty
 
-// Every drafter needs at least CHAOS.minValid sensible, valid, untaken players for their slot.
-export function feasible(a: Active, teams: Team[], slotIdx: number, available: Player[]) {
+export const TABLE_EFFECTS: Effect[] = ['reverse', 'shield', 'passItOn']
+export const isTable = (c: Card) => !!c.effect && TABLE_EFFECTS.includes(c.effect)
+
+// The drafter needs at least CHAOS.minValid sensible, valid, untaken players for their slot.
+export function feasible(a: Active, team: Team, slotIdx: number, available: Player[]) {
   if (!a.card.filter) return true
-  return teams.every((t) => {
-    const slot = slotsOf(t)[slotIdx].pos
-    return available.filter((p) => sensible(p, slot) && isValid(p, t, slot, a)).length >= CHAOS.minValid
-  })
+  const slot = slotsOf(team)[slotIdx].pos
+  return available.filter((p) => sensible(p, slot) && isValid(p, team, slot, a)).length >= CHAOS.minValid
 }
 
-export function drawCard(history: Card[], round: number, teams: Team[], available: Player[], settings: ChaosSettings, rng: Rng): Active {
+/** One player's card for this round. `history` is that player's own earlier cards. */
+export function drawCard(history: Card[], round: number, team: Team, available: Player[], settings: ChaosSettings, rng: Rng): Active {
   const wilds = history.filter((c) => c.category === 'wild').length
   const lastWild = history.at(-1)?.category === 'wild'
   const legendaries = history.filter((c) => c.rarity === 'legendary').length
   let eligible = CARDS.filter(
     (c) =>
+      !isTable(c) &&
       (c.category === 'none' || settings[c.category]) &&
       (c === CALM || !history.includes(c)) &&
       !(c.category === 'wild' && (round === 0 || lastWild || wilds >= CHAOS.maxWild)) &&
@@ -87,10 +105,18 @@ export function drawCard(history: Card[], round: number, teams: Team[], availabl
     const rarity = weighted(rng, rarities, (x) => CHAOS.weights[x])
     const card = pick(rng, eligible.filter((c) => c.rarity === rarity))
     const a: Active = { card, ctx: card.roll?.(rng) ?? {} }
-    if (feasible(a, teams, round, available)) return a
+    if (feasible(a, team, round, available)) return a
     if (!card.roll) eligible = eligible.filter((c) => c !== card) // a rolled card might work with a different roll
   }
   return { card: CALM, ctx: {} }
+}
+
+/** Sometimes a table card lands on top of everyone's own cards. Never in round 1, never twice. */
+export function drawEvent(events: Card[], round: number, settings: ChaosSettings, rng: Rng): Active | null {
+  if (!settings.wild || round === 0 || events.length >= CHAOS.maxEvents || rng() > CHAOS.eventChance) return null
+  const legendary = events.some((c) => c.rarity === 'legendary')
+  const eligible = CARDS.filter((c) => isTable(c) && !events.includes(c) && !(legendary && c.rarity === 'legendary'))
+  return eligible.length ? { card: pick(rng, eligible), ctx: {} } : null
 }
 
 // Timeout / Lucky Dip pick: fits the slot + card + under 80, then drop "under 80", then just valid.

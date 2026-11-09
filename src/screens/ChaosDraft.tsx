@@ -3,10 +3,10 @@ import { usePersist } from '../engine/persist'
 import { motion } from 'motion/react'
 import { ArrowRight, ShieldCheck, HandGrabbing, Shuffle } from '@phosphor-icons/react'
 import { PLAYERS, type Player, type Pos } from '../data/players'
-import ChaosFlip, { CardFace } from '../components/ChaosCard'
+import { ChaosDeal, CardFace } from '../components/ChaosCard'
 import PlayerCard from '../components/PlayerCard'
 import { CHAOS, PICK_SECONDS } from '../engine/config'
-import { chaosPick, drawCard, passItOn, steal, type Active, type ChaosSettings } from '../engine/chaos'
+import { chaosPick, drawCard, drawEvent, passItOn, steal, type Active, type ChaosSettings } from '../engine/chaos'
 import { drafterAt, slotsOf, type Team } from '../engine/draft'
 import { effectiveOvr } from '../engine/position'
 import { makeRng } from '../engine/rng'
@@ -15,7 +15,8 @@ import Handover from './Handover'
 import { HostOnly, Turn, useIsHost } from '../online/context'
 
 type Props = { teams: Team[]; order: number[]; settings: ChaosSettings; onDone: (teams: Team[], gone: Set<number>) => void }
-type Phase = 'flip' | 'shield' | 'steal' | 'pick' | 'passed'
+type Phase = 'flip' | 'shield' | 'pick' | 'passed'
+type Deal = { cards: (Active | null)[]; event: Active | null } // one card per team + an optional table card
 const PERK_EFFECTS = ['captain', 'doubleLink', 'hotHead', 'bigGame'] as const
 const rng = makeRng(Date.now())
 
@@ -24,45 +25,57 @@ export default function ChaosDraft({ teams: start, order, settings, onDone }: Pr
   const isHost = useIsHost()
   const [teams, setTeams] = usePersist('chaos:teams', start)
   const [round, setRound] = usePersist('chaos:round', 0)
-  const [history, setHistory] = usePersist<Active[]>('chaos:history', [])
-  const [active, setActive] = usePersist<Active | null>('chaos:active', () => draw(0, [], start))
-  const [phase, setPhase] = usePersist<Phase>('chaos:phase', active ? 'flip' : 'pick')
+  const [hist, setHist] = usePersist<Active[][]>('chaos:hist', () => start.map(() => []))
+  const [events, setEvents] = usePersist<Active[]>('chaos:events', [])
+  const [dealt, setDealt] = usePersist<Deal>('chaos:deal', () => deal(0, start.map(() => []), [], start))
+  const [phase, setPhase] = usePersist<Phase>('chaos:phase', dealt.cards.some(Boolean) ? 'flip' : 'pick')
   const [k, setK] = usePersist('chaos:k', 0) // whose turn within the current phase
   const [passing, setPassing] = usePersist('chaos:passing', true)
+  const [stole, setStole] = usePersist('chaos:stole', false) // the current drafter has used (or skipped) their Steal
   const [last, setLast] = usePersist<{ team: string; p: Player; pos: Pos } | null>('chaos:last', null)
   const [dipped, setDipped] = usePersist<Player | null>('chaos:dipped', null)
 
-  function draw(r: number, hist: Active[], ts: Team[]): Active | null {
-    if (r % settings.every !== 0) return null
+  function deal(r: number, h: Active[][], ev: Active[], ts: Team[]): Deal {
+    if (r % settings.every !== 0) return { cards: ts.map(() => null), event: null }
     const taken = new Set(ts.flatMap((t) => t.picks.filter(Boolean).map((p) => p!.id)))
-    return drawCard(hist.map((h) => h.card), r, ts, PLAYERS.filter((p) => !taken.has(p.id)), settings, rng)
+    const pool = PLAYERS.filter((p) => !taken.has(p.id))
+    return {
+      cards: ts.map((t, i) => drawCard(h[i].map((x) => x.card), r, t, pool, settings, rng)),
+      event: drawEvent(ev.map((x) => x.card), r, settings, rng),
+    }
   }
 
   const taken = new Set(teams.flatMap((t) => t.picks.filter(Boolean).map((p) => p!.id)))
   const available = PLAYERS.filter((p) => !taken.has(p.id))
-  const effect = active?.card.effect
+  const event = dealt.event?.card.effect
   const baseOrder = Array.from({ length: n }, (_, i) => drafterAt(round * n + i, order))
-  const roundOrder = effect === 'reverse' ? [...baseOrder].reverse() : baseOrder
+  const roundOrder = event === 'reverse' ? [...baseOrder].reverse() : baseOrder
   const ti = roundOrder[Math.min(k, n - 1)]
   const team = teams[ti]
   const slotPos = slotsOf(team)[round].pos
+  const mine = dealt.cards[ti]
+  const effect = mine?.card.effect
 
   const afterFlip = () => {
     setK(0)
     setPassing(true)
-    setPhase(effect === 'shield' ? 'shield' : effect === 'steal' ? 'steal' : 'pick')
+    setStole(false)
+    setPhase(event === 'shield' ? 'shield' : 'pick')
   }
 
   const nextRound = (ts: Team[]) => {
-    const hist = active ? [...history, active] : history
+    const h = hist.map((x, i) => (dealt.cards[i] ? [...x, dealt.cards[i]!] : x))
+    const ev = dealt.event ? [...events, dealt.event] : events
     if (round === 10) return onDone(ts, new Set())
-    const a = draw(round + 1, hist, ts)
-    setHistory(hist)
+    const d = deal(round + 1, h, ev, ts)
+    setHist(h)
+    setEvents(ev)
     setRound(round + 1)
-    setActive(a)
+    setDealt(d)
     setK(0)
     setPassing(true)
-    setPhase(a ? 'flip' : 'pick')
+    setStole(false)
+    setPhase(d.cards.some(Boolean) ? 'flip' : 'pick')
   }
 
   const pickPlayer = (p: Player) => {
@@ -75,12 +88,13 @@ export default function ChaosDraft({ teams: start, order, settings, onDone }: Pr
     setTeams(next)
     setLast({ team: team.name, p, pos: slotPos })
     setDipped(null)
+    setStole(false)
     if (k < n - 1) {
       setK(k + 1)
       setPassing(true)
       return
     }
-    if (effect === 'passItOn') {
+    if (event === 'passItOn') {
       setTeams(passItOn(next, round))
       setPhase('passed')
       return
@@ -106,16 +120,15 @@ export default function ChaosDraft({ teams: start, order, settings, onDone }: Pr
 
   const dock = (
     <div className="chaos-dock">
-      {active ? <CardFace a={active} small /> : <div className="chaos-card small none"><h3>Normal round</h3></div>}
-      {history.length > 0 && (
-        <div className="chaos-history" aria-label="Cards played">
-          {history.map((h, i) => <span key={i} className={h.card.rarity} title={h.card.description(h.ctx)}>{h.card.name}</span>)}
-        </div>
-      )}
+      {mine ? <CardFace a={mine} small /> : <div className="chaos-card small none"><h3>Normal round</h3></div>}
+      <div className="chaos-history" aria-label="This round's cards">
+        {dealt.event && <span className="table" title={dealt.event.card.description(dealt.event.ctx)}>Table: {dealt.event.card.name}</span>}
+        {dealt.cards.map((c, i) => c && i !== ti && <span key={i} className={c.card.rarity} title={c.card.description(c.ctx)}>{teams[i].name}: {c.card.name}</span>)}
+      </div>
     </div>
   )
 
-  if (phase === 'flip' && active) return <ChaosFlip a={active} round={round} onDone={afterFlip} canContinue={isHost} />
+  if (phase === 'flip') return <ChaosDeal deals={dealt.cards.map((a, i) => ({ name: teams[i].name, a }))} event={dealt.event} round={round} onDone={afterFlip} canContinue={isHost} />
 
   if (phase === 'shield') {
     if (passing) return handover(() => setPassing(false), <>Shield round: protect one of your players from steals and swaps.</>)
@@ -137,32 +150,6 @@ export default function ChaosDraft({ teams: start, order, settings, onDone }: Pr
           ))}
         </div>
         <div><button className="btn ghost" onClick={() => choose(null)}>No shield</button></div>
-      </div></Turn>
-    )
-  }
-
-  if (phase === 'steal') {
-    if (passing) return handover(() => setPassing(false), <>You drew <b className="accent">Steal</b>: take one player from an opponent before you pick.</>)
-    const done = (next: Team[]) => { setTeams(next); setPassing(true); setPhase('pick') }
-    return (
-      <Turn seat={ti}><div className="stack">
-        {dock}
-        <h2><HandGrabbing weight="fill" color="var(--accent)" /> {team.name}: steal a player</h2>
-        <p className="dim">He replaces your player in the same slot (yours goes back to the pool). They get a random sub-80 player instead.</p>
-        {teams.map((t, vi) => vi !== ti && (
-          <div key={vi} className="stack" style={{ gap: 8 }}>
-            <span className="label">{t.name}</span>
-            <div className="pick-grid">
-              {t.picks.slice(0, round).map((p, slotIdx) => p && (
-                <button key={p.id} className="pick-tile" disabled={t.shielded?.includes(p.id)} onClick={() => done(steal(teams, ti, vi, slotIdx, available, rng))}>
-                  <PlayerCard p={p} tilt={false} />
-                  <span className="tag">{t.shielded?.includes(p.id) ? 'Shielded' : `${slotsOf(t)[slotIdx].pos} → your ${slotsOf(team)[slotIdx].pos}`}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-        <div><button className="btn ghost" onClick={() => done(teams)}>Don't steal</button></div>
       </div></Turn>
     )
   }
@@ -189,8 +176,33 @@ export default function ChaosDraft({ teams: start, order, settings, onDone }: Pr
   // pick phase
   if (passing) return handover(() => {
     setPassing(false)
-    if (effect === 'luckyDip') setDipped(chaosPick(available, team, slotPos, null, rng, false))
-  })
+    if (effect === 'luckyDip') setDipped(chaosPick(available, team, slotPos, mine, rng, false))
+  }, mine && mine.card.id !== 'calm' ? <>Your card: <b className="accent">{mine.card.name}</b>. {mine.card.description(mine.ctx)}</> : undefined)
+
+  if (effect === 'steal' && !stole && round > 0) {
+    const done = (next: Team[]) => { setTeams(next); setStole(true) }
+    return (
+      <Turn seat={ti}><div className="stack">
+        {dock}
+        <h2><HandGrabbing weight="fill" color="var(--accent)" /> {team.name}: steal a player</h2>
+        <p className="dim">He replaces your player in the same slot (yours goes back to the pool). They get a random sub-80 player instead.</p>
+        {teams.map((t, vi) => vi !== ti && (
+          <div key={vi} className="stack" style={{ gap: 8 }}>
+            <span className="label">{t.name}</span>
+            <div className="pick-grid">
+              {t.picks.slice(0, round).map((p, slotIdx) => p && (
+                <button key={p.id} className="pick-tile" disabled={t.shielded?.includes(p.id)} onClick={() => done(steal(teams, ti, vi, slotIdx, available, rng))}>
+                  <PlayerCard p={p} tilt={false} />
+                  <span className="tag">{t.shielded?.includes(p.id) ? 'Shielded' : `${slotsOf(t)[slotIdx].pos} → your ${slotsOf(team)[slotIdx].pos}`}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+        <div><button className="btn ghost" onClick={() => done(teams)}>Don't steal</button></div>
+      </div></Turn>
+    )
+  }
 
   if (effect === 'luckyDip' && dipped) {
     return (
@@ -216,7 +228,7 @@ export default function ChaosDraft({ teams: start, order, settings, onDone }: Pr
         slot={round}
         taken={taken}
         onPick={pickPlayer}
-        card={active}
+        card={mine}
         seconds={effect === 'speed' ? CHAOS.speedSeconds : PICK_SECONDS}
         upcoming={roundOrder.slice(k).map((i) => teams[i].name)}
       />

@@ -1,6 +1,8 @@
 import { KEEPERS_AND_DEFENDERS } from './rows/defenders'
 import { MIDFIELDERS } from './rows/midfielders'
 import { ATTACKERS } from './rows/attackers'
+import { DEPTH } from './rows/depth'
+import { WORLD_CUP_WINNERS } from './honours'
 
 export type Pos =
   | 'GK' | 'CB' | 'LB' | 'RB' | 'LWB' | 'RWB'
@@ -15,6 +17,7 @@ export type Player = {
   clubs: string[]
   leagues: string[]
   era: string // decade of prime, e.g. "00s"
+  wc: boolean // was in a World Cup-winning squad
 }
 
 const LEAGUES: Record<string, string> = {
@@ -174,8 +177,9 @@ const ROWS: Row[] = [
   ['Vangelis Pavlidis', 78, 'ST', 'Greece', 'Benfica|AZ Alkmaar', 'LP|ED', '20s'],
 ]
 
-export const PLAYERS: Player[] = [...ROWS, ...KEEPERS_AND_DEFENDERS, ...MIDFIELDERS, ...ATTACKERS].map(([name, ovr, pos, nation, clubs, leagues, era], id) => ({
+export const PLAYERS: Player[] = [...ROWS, ...KEEPERS_AND_DEFENDERS, ...MIDFIELDERS, ...ATTACKERS, ...DEPTH].map(([name, ovr, pos, nation, clubs, leagues, era], id) => ({
   id, name, ovr, nation, era,
+  wc: WORLD_CUP_WINNERS.has(name),
   positions: pos.split(',') as Pos[],
   clubs: clubs.split('|'),
   leagues: leagues.split('|').map((l) => LEAGUES[l] ?? l),

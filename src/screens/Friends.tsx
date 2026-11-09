@@ -1,16 +1,29 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
-import { ArrowRight, Check, MagnifyingGlass, Trophy, UserPlus, X } from '@phosphor-icons/react'
+import { ArrowRight, Check, Lightning, MagnifyingGlass, Medal, Trophy, UserPlus, X } from '@phosphor-icons/react'
+import { myGames, type GameRow } from '../online/game'
 import type { Account } from '../online/auth'
 import { acceptRequest, codeForInvite, dismissInvite, removeFriendship, searchUsers, sendFriendRequest, type Person, type useSocial } from '../online/social'
 
-type Props = { me: Account; social: ReturnType<typeof useSocial>; onJoin: (code: string) => Promise<void> }
+type Props = {
+  me: Account
+  social: ReturnType<typeof useSocial>
+  onJoin: (code: string) => Promise<void>
+  onChallenge: (friendId: string, mode: string) => Promise<void>
+  onRejoin: (game: GameRow) => void
+  onSeasons: () => void
+}
+const MODES: [string, string][] = [['xi', 'All-Time XI'], ['sot', 'Stick or Twist'], ['chaos', 'Chaos Draft'], ['auction', 'Auction']]
+const modeName = (m: string | null) => MODES.find(([id]) => id === m)?.[1] ?? 'a game'
 
-export default function Friends({ me, social, onJoin }: Props) {
+export default function Friends({ me, social, onJoin, onChallenge, onRejoin, onSeasons }: Props) {
   const [q, setQ] = useState('')
   const [found, setFound] = useState<Person[]>([])
   const [code, setCode] = useState('')
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [challenging, setChallenging] = useState<string | null>(null)
+  const [games, setGames] = useState<GameRow[]>([])
+  useEffect(() => { myGames(me.id).then(setGames).catch(() => {}) }, [me.id, social.invites.length])
   const { friends, incoming, outgoing, invites, board } = social
 
   useEffect(() => {
@@ -34,8 +47,11 @@ export default function Friends({ me, social, onJoin }: Props) {
   return (
     <div className="friends-page">
       <div className="screen-head">
-        <h2>Friends</h2>
-        <span className="dim">Signed in as <b style={{ color: 'var(--chalk)' }}>@{me.username}</b></span>
+        <div className="stack" style={{ gap: 6 }}>
+          <h2>Friends</h2>
+          <span className="dim">Signed in as <b style={{ color: 'var(--chalk)' }}>@{me.username}</b></span>
+        </div>
+        <button className="btn lg" onClick={onSeasons}><Medal weight="fill" color="var(--accent)" /> Seasons</button>
       </div>
       {!social.loaded && <div className="skeleton-list" aria-busy="true" aria-label="Loading friends"><i /><i /><i /></div>}
       {msg && <p className={`small ${msg.ok ? 'accent' : ''}`} style={msg.ok ? undefined : { color: 'var(--hot)' }} role="status">{msg.text}</p>}
@@ -55,12 +71,24 @@ export default function Friends({ me, social, onJoin }: Props) {
               <h3>Game invites</h3>
               {invites.map((inv) => (
                 <motion.div key={inv.id} className="person" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}>
-                  <span><b>@{inv.from.username}</b> invited you to a game</span>
+                  <span><b>@{inv.from.username}</b> challenged you to <b>{modeName(inv.mode)}</b></span>
                   <span className="row">
                     <button className="btn primary sm" onClick={() => act(async () => { await onJoin(await codeForInvite(inv.id)); await dismissInvite(inv.id) })}>Join</button>
                     <button className="btn ghost sm" aria-label="Dismiss invite" onClick={() => act(() => dismissInvite(inv.id))}><X weight="bold" /></button>
                   </span>
                 </motion.div>
+              ))}
+            </div>
+          )}
+
+          {games.length > 0 && (
+            <div className="panel pad stack">
+              <h3>Your games</h3>
+              {games.map((g) => (
+                <div key={g.id} className="person">
+                  <span><b>{modeName(g.mode)}</b> <span className="dim small">· {g.players.map((p) => `@${p.username}`).join(', ')} · {g.status === 'lobby' ? 'in the lobby' : 'in progress'}</span></span>
+                  <button className="btn primary sm" onClick={() => onRejoin(g)}>Rejoin</button>
+                </div>
               ))}
             </div>
           )}
@@ -121,9 +149,24 @@ export default function Friends({ me, social, onJoin }: Props) {
             <h3>Your friends ({friends.length})</h3>
             {friends.length === 0 && <p className="small dim">Search for a username to send your first request.</p>}
             {friends.map((f) => (
-              <div key={f.id} className="person">
-                <span>@{f.username}</span>
-                <button className="btn ghost sm" onClick={() => confirm(`Remove @${f.username} as a friend?`) && act(() => removeFriendship(f.friendship))}>Remove</button>
+              <div key={f.id} className="stack" style={{ gap: 8 }}>
+                <div className="person">
+                  <span>@{f.username}</span>
+                  <span className="row">
+                    <button className={`btn sm ${challenging === f.id ? 'primary' : ''}`} onClick={() => setChallenging(challenging === f.id ? null : f.id)} aria-expanded={challenging === f.id}>
+                      <Lightning weight="fill" /> Challenge
+                    </button>
+                    <button className="btn ghost sm" onClick={() => confirm(`Remove @${f.username} as a friend?`) && act(() => removeFriendship(f.friendship))}>Remove</button>
+                  </span>
+                </div>
+                {challenging === f.id && (
+                  <motion.div className="challenge-modes" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
+                    <span className="small dim">Pick a mode. A lobby opens and @{f.username} gets an invite.</span>
+                    <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                      {MODES.map(([id, label]) => <button key={id} className="btn sm" onClick={() => act(() => onChallenge(f.id, id))}>{label}</button>)}
+                    </div>
+                  </motion.div>
+                )}
               </div>
             ))}
           </div>

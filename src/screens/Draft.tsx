@@ -1,3 +1,4 @@
+import { sfx } from '../engine/sfx'
 import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { ArrowRight, MagnifyingGlass } from '@phosphor-icons/react'
 import { PLAYERS, type Player, type Pos } from '../data/players'
@@ -42,6 +43,7 @@ export default function Draft({ teams, order, pickNo, teamIndex, slot, taken, on
   const choose = (p: Player) => {
     if (picked.current) return
     picked.current = true
+    sfx.pick()
     onPick(p)
   }
 

@@ -1,12 +1,14 @@
 import { motion } from 'motion/react'
-import { ArrowRight, Trophy } from '@phosphor-icons/react'
+import { ArrowClockwise, ArrowRight, Trophy } from '@phosphor-icons/react'
+import ShareResult from '../components/ShareResult'
+import type { ResultCard } from '../engine/shareCard'
 import type { Team } from '../engine/draft'
 import { champion, standings, type Fixture } from '../engine/tournament'
 import { HostOnly } from '../online/context'
 
-type Props = { teams: Team[]; fixtures: Fixture[]; onNext: () => void; onReset: () => void }
+type Props = { teams: Team[]; fixtures: Fixture[]; kicker: string; onNext: () => void; onReset: () => void; onRematch: () => void; resetLabel: string }
 
-export default function Tournament({ teams, fixtures, onNext, onReset }: Props) {
+export default function Tournament({ teams, fixtures, kicker, onNext, onReset, onRematch, resetLabel }: Props) {
   const n = teams.length
   const champ = champion(n, fixtures)
   const next = fixtures.find((f) => f.winner === undefined)
@@ -28,7 +30,13 @@ export default function Tournament({ teams, fixtures, onNext, onReset }: Props) 
           {name(champ)} built<br />the best XI.
         </motion.h2>
         <Results n={n} fixtures={fixtures} name={name} final={final} />
-        <button className="btn primary lg" style={{ marginTop: 32 }} onClick={onReset}>Play again</button>
+        <div className="row champ-actions">
+          <HostOnly note="Waiting for the host to start a rematch">
+            <button className="btn primary lg" onClick={onRematch}><ArrowClockwise weight="bold" /> Rematch</button>
+          </HostOnly>
+          <ShareResult card={tournamentCard(teams, fixtures, champ, kicker)} />
+          <button className="btn ghost" onClick={onReset}>{resetLabel}</button>
+        </div>
       </div>
     )
 
@@ -98,4 +106,19 @@ function Card({ f, name, i }: { f: Fixture; name: (i: number) => string; i: numb
       <div className={`side ${cls(f.b)}`}><span>{name(f.b)}</span><span className="sc">{f.score?.[1] ?? ''}</span></div>
     </motion.div>
   )
+}
+
+function tournamentCard(teams: Team[], fixtures: Fixture[], champ: number, kicker: string): ResultCard {
+  const name = (i: number) => teams[i].name
+  const final = fixtures.find((f) => f.stage === 'Final') ?? (fixtures.length === 1 ? fixtures[0] : undefined)
+  const line = (f: Fixture) => `${f.stage}: ${name(f.a)} ${f.score?.[0]}-${f.score?.[1]} ${name(f.b)}${f.pens ? ` (pens ${f.pens[0]}-${f.pens[1]})` : ''}`
+  return {
+    kicker: `${kicker} · Champions`,
+    rows: final
+      ? [{ name: name(final.a), value: String(final.score?.[0] ?? ''), win: final.winner === final.a }, { name: name(final.b), value: String(final.score?.[1] ?? ''), win: final.winner === final.b }]
+      : standings(teams.length, fixtures).map((r, i) => ({ name: name(r.team), value: `${r.pts} pts`, win: i === 0 })),
+    note: final?.pens ? `Won ${Math.max(...final.pens)}-${Math.min(...final.pens)} on penalties` : undefined,
+    lists: [{ title: 'Every result', items: fixtures.map(line) }],
+    star: `${name(champ)} built the best XI`,
+  }
 }
