@@ -3,7 +3,6 @@ import { motion, useReducedMotion } from 'motion/react'
 import { ArrowRight, GoogleLogo } from '@phosphor-icons/react'
 import { claimUsername, signIn, signInGoogle, signUp, type Account } from '../online/auth'
 import { onlineReady } from '../online/supabase'
-import { APP_NAME } from '../engine/config'
 
 export type Profile = { name: string; email?: string }
 const KEY = 'fw-profile'
@@ -83,7 +82,6 @@ export default function Login({ onDone, pickUsernameFor, onAccount }: Props) {
         </div>
         <form className="login-form" onSubmit={submit} noValidate>
           <div className="stack" style={{ gap: 6 }}>
-            <span className="label">{APP_NAME}</span>
             <h2>{title}</h2>
             {pickUsernameFor && <p className="dim small">This is how friends find you. It has to be unique, and you can't change it later.</p>}
           </div>
@@ -108,7 +106,7 @@ export default function Login({ onDone, pickUsernameFor, onAccount }: Props) {
             {error && <p className="small" role="alert" style={{ color: 'var(--hot)' }}>{error}</p>}
             {note && <p className="small accent" role="status">{note}</p>}
             <button className="btn primary lg" type="submit" disabled={busy} style={{ width: '100%' }}>
-              {busy ? 'One moment…' : pickUsernameFor ? 'Claim username' : tab === 'signup' ? 'Create account' : tab === 'signin' ? 'Sign in' : "Let's play"} <ArrowRight weight="bold" />
+              {busy ? <span className="spin" aria-hidden /> : null}{pickUsernameFor ? 'Claim username' : tab === 'signup' ? 'Create account' : tab === 'signin' ? 'Sign in' : "Let's play"}{!busy && <ArrowRight weight="bold" />}
             </button>
             {onlineReady && !pickUsernameFor && tab !== 'offline' && (
               <>

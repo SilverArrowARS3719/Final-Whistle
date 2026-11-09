@@ -32,6 +32,7 @@ export function useSocial(me: string | null) {
   const [friendships, setFriendships] = useState<Friendship[]>([])
   const [invites, setInvites] = useState<Invite[]>([])
   const [board, setBoard] = useState<Standing[]>([])
+  const [loaded, setLoaded] = useState(false)
 
   const refresh = useCallback(async () => {
     if (!supabase || !me) return
@@ -43,6 +44,7 @@ export function useSocial(me: string | null) {
     setFriendships((f.data ?? []) as unknown as Friendship[])
     setInvites((i.data ?? []) as unknown as Invite[])
     setBoard(((b.data ?? []) as Standing[]).map((s) => ({ ...s, wins: Number(s.wins), played: Number(s.played) })))
+    setLoaded(true)
   }, [me])
 
   useEffect(() => {
@@ -58,6 +60,7 @@ export function useSocial(me: string | null) {
 
   const other = (f: Friendship) => (f.requester.id === me ? f.addressee : f.requester)
   return {
+    loaded,
     friends: friendships.filter((f) => f.status === 'accepted').map((f) => ({ ...other(f), friendship: f.id })),
     incoming: friendships.filter((f) => f.status === 'pending' && f.addressee.id === me),
     outgoing: friendships.filter((f) => f.status === 'pending' && f.requester.id === me),

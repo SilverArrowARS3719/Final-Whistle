@@ -94,6 +94,8 @@ export default function Root() {
     ? { online: true, mySeat: online.game.players.findIndex((p) => p.id === account.id), isHost: online.game.host === account.id, names: online.game.players.map((p) => p.username) }
     : { online: false, mySeat: -1, isHost: true, names: [] }, [online, account])
 
+  if (onlineReady && loading) return <div className="boot" role="status" aria-label="Loading"><span className="spin lg" /></div>
+
   // signed in but no username yet
   if (onlineReady && session && !loading && !account)
     return (

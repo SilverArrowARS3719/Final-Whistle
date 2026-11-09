@@ -106,7 +106,7 @@ export default function ChaosDraft({ teams: start, order, settings, onDone }: Pr
 
   const dock = (
     <div className="chaos-dock">
-      {active ? <CardFace a={active} small /> : <div className="chaos-card small none"><span className="label">No card</span><h3>Normal round</h3></div>}
+      {active ? <CardFace a={active} small /> : <div className="chaos-card small none"><h3>Normal round</h3></div>}
       {history.length > 0 && (
         <div className="chaos-history" aria-label="Cards played">
           {history.map((h, i) => <span key={i} className={h.card.rarity} title={h.card.description(h.ctx)}>{h.card.name}</span>)}
