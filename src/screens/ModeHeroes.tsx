@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { ArrowRight, Shuffle } from '@phosphor-icons/react'
+import { ArrowRight, Shuffle, Trophy } from '@phosphor-icons/react'
+import { COMPETITIONS, TEAMS, squadOf } from '../data/winners'
+import { TROPHIES, TROPHY_NAME } from '../engine/career'
 import { PLAYERS, type Player } from '../data/players'
 import { SMALL_SIDED } from '../data/formations'
 import Backdrop from '../components/Backdrop'
@@ -276,6 +278,78 @@ export function AuctionHero({ onStart }: { onStart: () => void }) {
       </section>
 
       <Closer line="Know your budget. Know when to pass." cta="Open the auction" onStart={onStart} />
+    </div>
+  )
+}
+
+/* ---------------- Team of Winners ---------------- */
+
+const SHOWCASE = ['ucl', 'world-cup', 'uel', 'premier-league', 'libertadores', 'taca-de-portugal', 'afcon', 'la-liga']
+
+export function WinnersHero({ onStart }: { onStart: () => void }) {
+  const t = useTicker(2800)
+  const comps = COMPETITIONS.filter((c) => SHOWCASE.includes(c.id))
+  const c = comps[t % comps.length]
+  const star = [...squadOf(c.winner)].sort((a, b) => b.ovr - a.ovr)[0]
+  const regions = [...new Set(COMPETITIONS.map((x) => x.region))]
+  const steps = [
+    ['Slot', 'Tap any empty spot: a position in your XI or one of nine bench places.'],
+    ['Spin', `${COMPETITIONS.length} trophies on the wheel. It lands on one, and you draft from whoever holds it right now.`],
+    ['Pick', 'Anyone in their current squad who can play that slot. New signings count; players who have left do not.'],
+    ['Clash', 'A club someone else got this round is off your wheel. Next round it is back, minus the player they took.'],
+  ]
+  return (
+    <div className="mh winners">
+      <Backdrop src="/img/winners.jpg" />
+      <Hero title="Only winners" accent="get picked." lede="Every player comes from a club or country holding a trophy right now. Build 20 men from the spin of a wheel, then take them through three Premier League seasons and try to win all six." cta="Start drafting" onStart={onStart}>
+        <div className="win-stage">
+          <AnimatePresence mode="popLayout">
+            <motion.div key={c.id} className="win-card" initial={{ rotateY: 90, opacity: 0 }} animate={{ rotateY: 0, opacity: 1 }} exit={{ rotateY: -90, opacity: 0, transition: { duration: 0.3 } }} transition={{ type: 'spring', stiffness: 110, damping: 15 }}>
+              <span className="label">{c.name} · {c.edition}</span>
+              <h3>{TEAMS[c.winner].name}</h3>
+              {star && <PlayerCard p={star} tilt={false} />}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </Hero>
+
+      <section className="how" id="how">
+        <h2>One turn, four steps.</h2>
+        <ol className="timeline-steps">
+          {steps.map(([word, body], i) => (
+            <motion.li key={word} {...reveal(i)}>
+              <strong>{word}</strong>
+              <p className="dim">{body}</p>
+            </motion.li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="win-trophies">
+        <motion.h2 {...reveal()}>Six trophies. Three seasons.</motion.h2>
+        <p className="dim" style={{ maxWidth: '60ch' }}>Your club plays in the Premier League. First to win every one of these at least once wins outright. Nobody does? Most trophies after three seasons.</p>
+        <div className="win-six">
+          {TROPHIES.map((k, i) => (
+            <motion.div key={k} className="panel pad" {...reveal(i)}><Trophy weight="fill" /><b>{TROPHY_NAME[k]}</b></motion.div>
+          ))}
+        </div>
+      </section>
+
+      <section className="win-wheel-list">
+        <motion.h2 {...reveal()}>Who holds what.</motion.h2>
+        <div className="win-regions">
+          {regions.map((r, i) => (
+            <motion.div key={r} className="panel pad stack" {...reveal(i % 4)}>
+              <h3>{r}</h3>
+              {COMPETITIONS.filter((x) => x.region === r).map((x) => (
+                <div key={x.id} className="win-line"><span>{x.name}</span><b>{TEAMS[x.winner].name}</b></div>
+              ))}
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      <Closer line="Spin. Pick. Win everything." cta="Start drafting" onStart={onStart} />
     </div>
   )
 }

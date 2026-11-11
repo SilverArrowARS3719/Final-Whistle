@@ -8,21 +8,24 @@ import Pitch from '../components/Pitch'
 import Seg from '../components/Seg'
 import { newTeam } from '../engine/draft'
 
-export type FormationChoice = { label: string; slots?: Slot[] }
+export type FormationChoice = { label: string; slots?: Slot[]; club?: string }
 const CUSTOM = 'Custom'
 
-type Props = { names: string[]; order: number[]; onDone: (f: FormationChoice[]) => void; extra?: ReactNode }
+// `clubs`: each player also names their club (Team of Winners). `initial`: the shape everyone starts on.
+type Props = { names: string[]; order: number[]; onDone: (f: FormationChoice[]) => void; extra?: ReactNode; clubs?: boolean; initial?: string }
 
-export default function FormationPick({ names, order, onDone, extra }: Props) {
+export default function FormationPick({ names, order, onDone, extra, clubs = false, initial = FORMATION_NAMES[0] }: Props) {
   // shared, so in an online game everyone picks their own shape at the same time
-  const [fs, setFs] = usePersist('formation:fs', () => names.map(() => FORMATION_NAMES[0]))
+  const [fs, setFs] = usePersist('formation:fs', () => names.map(() => initial))
+  const [club, setClub] = usePersist('formation:club', () => names.map((n) => `${n} FC`))
   const [typed, setTyped] = usePersist('formation:typed', () => names.map(() => '4-1-4-1'))
 
   // custom shapes that don't parse fall back to the preset for the pitch preview, and block Start
   const parsed = names.map((_, i) => (fs[i] === CUSTOM ? shapeFormation(typed[i]) : null))
   const choice = (i: number): FormationChoice => {
     const r = parsed[i]
-    return r && 'slots' in r ? { label: r.label, slots: r.slots } : { label: fs[i] === CUSTOM ? FORMATION_NAMES[0] : fs[i] }
+    const name = clubs ? club[i].trim() || `${names[i]} FC` : undefined
+    return r && 'slots' in r ? { label: r.label, slots: r.slots, club: name } : { label: fs[i] === CUSTOM ? FORMATION_NAMES[0] : fs[i], club: name }
   }
   const ready = parsed.every((r) => !r || 'slots' in r)
 
@@ -52,6 +55,12 @@ export default function FormationPick({ names, order, onDone, extra }: Props) {
             >
               <h3>{names[i]}</h3>
               <Turn seat={i} note={`${names[i]} is choosing`}>
+              {clubs && (
+                <label className="field">
+                  <span className="label">Club name</span>
+                  <input value={club[i]} maxLength={24} onChange={(e) => setClub(club.map((c, j) => (j === i ? e.target.value : c)))} />
+                </label>
+              )}
               <Seg id={`f${i}`} options={[...FORMATION_NAMES, CUSTOM]} value={fs[i]} onChange={(f) => setFs(fs.map((x, j) => (j === i ? f : x)))} />
               <AnimatePresence initial={false}>
                 {fs[i] === CUSTOM && (
@@ -81,9 +90,9 @@ export default function FormationPick({ names, order, onDone, extra }: Props) {
           )
         })}
       </div>
-      <p className="dim small" style={{ marginTop: 16 }}>
+      {!clubs && <p className="dim small" style={{ marginTop: 16 }}>
         Slots fill in this order: keeper, defence left to right, midfield, attack. One slot per round.
-      </p>
+      </p>}
     </div>
   )
 }

@@ -55,7 +55,7 @@ export default function Bust({ p }: { p: Player }) {
   const skin = SKIN[look.skin - 1] ?? SKIN[1]
   const hair = HAIR[look.color] ?? HAIR.d
   const st = STYLES[look.style] ?? STYLES.s
-  const kit = KITS[hash(p.clubs[0]) % KITS.length]
+  const kit = KITS[hash(p.clubs[0] ?? p.nation) % KITS.length] // national-team-only players have no club
   const nums = NUMBERS[p.positions[0]] ?? [10]
   const num = nums[h % nums.length]
   const id = `b${p.id}`

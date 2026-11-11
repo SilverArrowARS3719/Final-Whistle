@@ -60,3 +60,14 @@ export const SIM = {
   penBase: 0.76,
   penK: 0.006,
 }
+
+// Team of Winners career: quick-sim goals = base * e^(k * strength gap). Finals use the full match sim.
+export const CAREER = {
+  seasons: 3,
+  goalBase: 1.3, gapK: 0.075, homeEdge: 0.6, // home edge in rating points
+  formSpread: 1.5, // opponents' rating wobbles this much season to season
+  oppOffset: -6.5, // drafted squads mix champions with minnows, so opponents are scaled to keep titles winnable
+  depthWeight: 0.15, // a thin bench costs this share of the XI-bench gap
+  uclDirect: 16, uclPlayoff: 10, // league-phase points for the last 16 / knockout play-off
+  uclQualify: 4, // finish in the top 4 to play the Champions League next season
+}

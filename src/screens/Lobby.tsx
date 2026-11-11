@@ -4,7 +4,7 @@ import { ArrowRight, Copy, Crown, PaperPlaneTilt, SignOut } from '@phosphor-icon
 import type { GameRow } from '../online/game'
 import type { Person } from '../online/social'
 
-const MODE_NAME: Record<string, string> = { xi: 'All-Time XI', sot: 'Stick or Twist', chaos: 'Chaos Draft', auction: 'Auction' }
+const MODE_NAME: Record<string, string> = { xi: 'All-Time XI', sot: 'Stick or Twist', chaos: 'Chaos Draft', auction: 'Auction', winners: 'Team of Winners' }
 
 type Props = {
   game: GameRow

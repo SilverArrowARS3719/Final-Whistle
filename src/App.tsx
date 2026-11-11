@@ -21,7 +21,10 @@ import type { AuctionKind } from './engine/auction'
 import SizePick from './screens/SizePick'
 import { DEFAULT_CHAOS_SETTINGS, type ChaosSettings } from './engine/chaos'
 import Home from './screens/Home'
-import { SotHero, ChaosHero, AuctionHero } from './screens/ModeHeroes'
+import { SotHero, ChaosHero, AuctionHero, WinnersHero } from './screens/ModeHeroes'
+import WinnersDraft from './screens/WinnersDraft'
+import Career from './screens/Career'
+import { DEFAULT_SHAPE } from './engine/winners'
 import { ArrowLeft, House } from '@phosphor-icons/react'
 import { StoreContext, usePersist } from './engine/persist'
 import { APP_NAME } from './engine/config'
@@ -35,9 +38,9 @@ import TacticsScreen from './screens/Tactics'
 import Match from './screens/Match'
 import Tournament from './screens/Tournament'
 
-const MODE_NAMES: Record<Mode, string> = { xi: 'All-Time XI', sot: 'Stick or Twist', chaos: 'Chaos Draft', auction: 'Auction' }
+const MODE_NAMES: Record<Mode, string> = { xi: 'All-Time XI', sot: 'Stick or Twist', chaos: 'Chaos Draft', auction: 'Auction', winners: 'Team of Winners' }
 
-type Screen = 'login' | 'modes' | 'home' | 'setup' | 'spinner' | 'formation' | 'size' | 'draft' | 'handover' | 'modedraft' | 'done' | 'tournament' | 'tactics' | 'match'
+type Screen = 'login' | 'modes' | 'home' | 'setup' | 'spinner' | 'formation' | 'size' | 'draft' | 'handover' | 'modedraft' | 'done' | 'tournament' | 'tactics' | 'match' | 'career'
 
 // Where Back goes from each pre-draft step. Once picks start, leaving needs the logo (with a confirm).
 const BACK: Partial<Record<Screen, Screen>> = { home: 'modes', setup: 'home', spinner: 'setup', formation: 'spinner', size: 'spinner' }
@@ -142,7 +145,7 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
     setScreen(to)
   }
   // home keeps the game: the landing page offers to resume it
-  const IN_GAME: Screen[] = ['spinner', 'formation', 'size', 'draft', 'handover', 'modedraft', 'done', 'tournament', 'tactics', 'match']
+  const IN_GAME: Screen[] = ['spinner', 'formation', 'size', 'draft', 'handover', 'modedraft', 'done', 'tournament', 'tactics', 'match', 'career']
   const goHome = () => {
     if (online) return onLeaveOnline!(false) // leave the shared game for this device only; friends carry on
     if (IN_GAME.includes(screen)) setResume(screen === 'match' ? 'tactics' : screen)
@@ -169,6 +172,7 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
       mode === 'xi' ? <Home onStart={() => setScreen('setup')} />
       : mode === 'sot' ? <SotHero onStart={() => setScreen('setup')} />
       : mode === 'chaos' ? <ChaosHero onStart={() => setScreen('setup')} />
+      : mode === 'winners' ? <WinnersHero onStart={() => setScreen('setup')} />
       : <AuctionHero onStart={() => setScreen('setup')} />,
     setup: () => <Setup me={me} onStart={(ns) => { setNames(ns); setScreen('spinner') }} onOnline={onPlayOnline && (() => onPlayOnline(mode))} />,
     spinner: () => <Spinner names={names} onDone={(o) => { setOrder(o); setScreen(mode === 'auction' ? 'size' : 'formation') }} />,
@@ -176,12 +180,15 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
     modedraft: () =>
       mode === 'sot' ? <StickOrTwist teams={teams} order={order} onDone={finishDraft} />
       : mode === 'chaos' ? <ChaosDraft teams={teams} order={order} settings={chaos} onDone={finishDraft} />
+      : mode === 'winners' ? <WinnersDraft teams={teams} order={order} onDone={(final) => { store.clear('winners:'); setTeams(final); setScreen('done') }} />
       : <Auction teams={teams} order={order} kind={auctionKind} onDone={finishDraft} />,
     formation: () => (
       <FormationPick
         names={names}
         order={order}
-        onDone={(fs) => { setTeams(names.map((nm, i) => newTeam(nm, fs[i].label, fs[i].slots))); setScreen(mode === 'xi' ? 'draft' : 'modedraft') }}
+        onDone={(fs) => { setTeams(names.map((nm, i) => newTeam(fs[i].club ?? nm, fs[i].label, fs[i].slots))); setScreen(mode === 'xi' ? 'draft' : 'modedraft') }}
+        clubs={mode === 'winners'}
+        initial={mode === 'winners' ? DEFAULT_SHAPE : undefined}
         extra={mode === 'chaos' && seat.isHost && <ChaosSettingsPanel value={chaos} onChange={setChaos} />}
       />
     ),
@@ -208,7 +215,17 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
         />
       )
     },
-    done: () => <DraftDone teams={teams} onAllDone={() => setScreen('tournament')} />,
+    done: () => <DraftDone teams={teams} onAllDone={() => setScreen(mode === 'winners' ? 'career' : 'tournament')} next={mode === 'winners' ? 'Start the career' : undefined} />,
+    career: () => (
+      <Career
+        teams={teams}
+        kicker={kicker}
+        onChampion={(seat) => { if (onRecordResult && !resultSaved) { setResultSaved(true); onRecordResult(seat) } }}
+        onRematch={rematch}
+        onReset={() => (online ? onLeaveOnline!(true) : discard('home'))}
+        resetLabel={online ? 'Leave the game' : 'Pick another mode'}
+      />
+    ),
     tournament: () => (
       <Tournament
         teams={teams}
@@ -236,7 +253,7 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
     ['Draft', ['draft', 'handover', 'modedraft', 'done']],
     ['Tactics', ['tactics']],
     ['Match', ['match']],
-    ['Tournament', ['tournament']],
+    ['Tournament', ['tournament', 'career']],
   ]
 
   // the hand-over between players slides sideways; everything else fades.

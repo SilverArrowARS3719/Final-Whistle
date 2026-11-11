@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { ArrowRight, CaretLeft, CaretRight, LockSimple } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
 
-export type Mode = 'xi' | 'sot' | 'chaos' | 'auction'
+export type Mode = 'xi' | 'sot' | 'chaos' | 'auction' | 'winners'
 type Slide = { mode: Mode | null; n: number; title: string; line: string; img: string }
 
 const SLIDES: Slide[] = [
@@ -11,7 +11,7 @@ const SLIDES: Slide[] = [
   { mode: 'sot', n: 2, title: 'Stick or Twist', line: "You're dealt the players. Gamble for better ones, but don't bust the cap.", img: '/img/sot.jpg' },
   { mode: 'chaos', n: 3, title: 'Chaos Draft', line: 'A normal draft, until the cards start flipping.', img: '/img/chaos.jpg' },
   { mode: 'auction', n: 4, title: 'Auction', line: 'Open or blind bidding with a fixed budget. Build a 5 or 7-a-side team without going broke.', img: '/img/auction.jpg' },
-  { mode: null, n: 5, title: 'Coming Soon', line: 'Mode 5 is still in the tunnel.', img: '/img/soon.jpg' },
+  { mode: 'winners', n: 5, title: 'Team of Winners', line: 'Spin for a trophy, take a player from whoever holds it. Then try to win everything in three seasons.', img: '/img/winners.jpg' },
 ]
 const AUTOPLAY_MS = 7000
 const SLIDE = {

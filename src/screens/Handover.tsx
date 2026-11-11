@@ -16,15 +16,16 @@ type Props = {
   pickNo: number // picks made so far
   total: number
   onReady: () => void
+  seat?: number // whose turn it is; defaults to looking the name up (team names = player names, except Team of Winners clubs)
 }
 
 const ease = [0.16, 1, 0.3, 1] as const
 
-export default function Handover({ name, lastTeam, lastPick, lastOvr, lastPos, nextPos, hint, pickNo, total, onReady }: Props) {
+export default function Handover({ name, lastTeam, lastPick, lastOvr, lastPos, nextPos, hint, pickNo, total, onReady, seat: seatProp }: Props) {
   const reduce = useReducedMotion()
   const pct = (pickNo / total) * 100
   const o = useOnline()
-  const seat = o.names.indexOf(name)
+  const seat = seatProp ?? o.names.indexOf(name)
   // online there's no device to pass: the player's own device skips straight on, everyone else waits
   if (useAutoReady(seat, onReady))
     return (

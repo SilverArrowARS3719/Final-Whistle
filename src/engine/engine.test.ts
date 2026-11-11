@@ -370,7 +370,7 @@ describe('auction', () => {
   })
 })
 
-describe('online sync (diff + apply)', () => {
+describe('online sync (diff + apply)', { timeout: 30_000 }, () => { // first import of persist pulls in all player data; slow while balance tests run in parallel
   it('a pick becomes one small edit and replaying edits rebuilds the same state', async () => {
     const { diff, setIn, reviveDeep } = await import('./persist')
     const a = { teams: [newTeam('A', '4-3-3'), newTeam('B', '4-4-2')], pickNo: 3 }

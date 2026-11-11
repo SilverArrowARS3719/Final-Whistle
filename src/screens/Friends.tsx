@@ -13,7 +13,7 @@ type Props = {
   onRejoin: (game: GameRow) => void
   onSeasons: () => void
 }
-const MODES: [string, string][] = [['xi', 'All-Time XI'], ['sot', 'Stick or Twist'], ['chaos', 'Chaos Draft'], ['auction', 'Auction']]
+const MODES: [string, string][] = [['xi', 'All-Time XI'], ['sot', 'Stick or Twist'], ['chaos', 'Chaos Draft'], ['auction', 'Auction'], ['winners', 'Team of Winners']]
 const modeName = (m: string | null) => MODES.find(([id]) => id === m)?.[1] ?? 'a game'
 
 export default function Friends({ me, social, onJoin, onChallenge, onRejoin, onSeasons }: Props) {

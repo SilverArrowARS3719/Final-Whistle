@@ -5,7 +5,7 @@ import { ArrowRight, Check } from '@phosphor-icons/react'
 import Pitch from '../components/Pitch'
 import type { Team } from '../engine/draft'
 
-export default function DraftDone({ teams, onAllDone }: { teams: Team[]; onAllDone: () => void }) {
+export default function DraftDone({ teams, onAllDone, next = 'To the tournament' }: { teams: Team[]; onAllDone: () => void; next?: string }) {
   const [done, setDone] = usePersist('done:flags', () => teams.map(() => false))
   const o = useOnline()
   return (
@@ -14,7 +14,7 @@ export default function DraftDone({ teams, onAllDone }: { teams: Team[]; onAllDo
         <h2>Squads are in.</h2>
         <HostOnly note="The host moves on once everyone is done">
           <button className="btn primary lg" disabled={!done.every(Boolean)} onClick={onAllDone}>
-            To the tournament <ArrowRight weight="bold" />
+            {next} <ArrowRight weight="bold" />
           </button>
         </HostOnly>
       </div>

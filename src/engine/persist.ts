@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useReducer, useRef } from 'react'
 import { PLAYERS } from '../data/players'
+import { WINNER_PLAYERS } from '../data/winners'
 import { CARDS } from './chaos'
 
 // Game state lives in a Store. Offline it's this browser (a refresh resumes the game); online it's the shared
@@ -22,7 +23,7 @@ export interface Store {
 export function revive(_k: string, v: unknown) {
   if (v && typeof v === 'object') {
     const o = v as Record<string, unknown>
-    if (typeof o.id === 'number' && 'ovr' in o && 'positions' in o) return PLAYERS[o.id] ?? v
+    if (typeof o.id === 'number' && 'ovr' in o && 'positions' in o) return (o.id >= 10_000 ? WINNER_PLAYERS[o.id - 10_000] : PLAYERS[o.id]) ?? v
     if (typeof o.id === 'string' && 'rarity' in o && 'category' in o) return CARDS.find((c) => c.id === o.id) ?? v
   }
   return v
