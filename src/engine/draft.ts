@@ -62,3 +62,14 @@ export function fillBench(teams: Team[], available: Player[], rng: Rng): Team[] 
     return { ...t, bench }
   })
 }
+
+/** CPU drafter: the best few for the slot (rating out of position plus links to its own picks), with a little luck. */
+export function cpuPick(available: Player[], team: Team, slotIdx: number, rng: Rng): Player {
+  const slots = slotsOf(team)
+  const pos = slots[slotIdx].pos
+  const mine = team.picks.filter((p): p is Player => !!p)
+  const link = (p: Player) => mine.filter((m) => m.nation === p.nation || m.clubs.some((c) => p.clubs.includes(c))).length
+  const score = (p: Player) => p.ovr - penalty(p, pos) + Math.min(3, link(p))
+  const top = [...available].sort((a, b) => score(b) - score(a)).slice(0, 5)
+  return top[Math.floor(rng() ** 1.6 * top.length)]
+}

@@ -3,6 +3,13 @@ import { SMALL_SIDED } from './data/formations'
 import { AnimatePresence, motion } from 'motion/react'
 import { PLAYERS, type Player } from './data/players'
 import { drafterAt, fillBench, newTeam, roundOf, slotsOf, type Team } from './engine/draft'
+import { record } from './engine/progress'
+import { track } from './online/track'
+import { dayKey, loadDaily, streakOf } from './engine/daily'
+import CpuTurn from './components/CpuTurn'
+import Daily from './screens/Daily'
+import ProfileScreen from './screens/Profile'
+import Insights from './screens/Insights'
 import { effectiveOvr } from './engine/position'
 import { makeRng } from './engine/rng'
 import { simulateMatch, type MatchResult } from './engine/sim'
@@ -10,7 +17,7 @@ import type { Tactics } from './engine/tactics'
 import { champion, makeFixtures, nextFixtures, type Fixture } from './engine/tournament'
 import Landing, { type Mode } from './screens/Landing'
 import Login, { loadProfile, saveProfile, type Profile } from './screens/Login'
-import { SignOut, UsersThree, WifiHigh } from '@phosphor-icons/react'
+import { CalendarCheck, SignOut, UsersThree, WifiHigh } from '@phosphor-icons/react'
 import type { Account } from './online/auth'
 import { HostOnly, useOnline } from './online/context'
 import StickOrTwist from './screens/StickOrTwist'
@@ -40,10 +47,11 @@ import Tournament from './screens/Tournament'
 
 const MODE_NAMES: Record<Mode, string> = { xi: 'All-Time XI', sot: 'Stick or Twist', chaos: 'Chaos Draft', auction: 'Auction', winners: 'Team of Winners' }
 
-type Screen = 'login' | 'modes' | 'home' | 'setup' | 'spinner' | 'formation' | 'size' | 'draft' | 'handover' | 'modedraft' | 'done' | 'tournament' | 'tactics' | 'match' | 'career'
+type Screen = 'login' | 'modes' | 'home' | 'setup' | 'spinner' | 'formation' | 'size' | 'draft' | 'handover' | 'modedraft' | 'done' | 'tournament' | 'tactics' | 'match' | 'career' | 'daily' | 'profile' | 'insights'
 
 // Where Back goes from each pre-draft step. Once picks start, leaving needs the logo (with a confirm).
-const BACK: Partial<Record<Screen, Screen>> = { home: 'modes', setup: 'home', spinner: 'setup', formation: 'spinner', size: 'spinner' }
+const BACK: Partial<Record<Screen, Screen>> = { home: 'modes', setup: 'home', spinner: 'setup', formation: 'spinner', size: 'spinner', daily: 'modes', profile: 'modes', insights: 'profile' }
+const RECORDED = 'fw-recorded' // the last game this device counted towards XP, so a refresh can't count it twice
 
 type Props = {
   account: Account | null
@@ -63,6 +71,8 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
   // a match replay isn't saved, so a refresh during one goes back to its tactics screen
   const [screen, setScreen] = usePersist<Screen>('screen', () => (loadProfile() ? 'modes' : 'login'))
   const [names, setNames] = usePersist<string[]>('names', [])
+  const [cpu, setCpu] = usePersist<boolean[]>('cpu', [])
+  const [gameId, setGameId] = usePersist('gameId', () => Date.now())
   const [order, setOrder] = usePersist<number[]>('order', [])
   const [teams, setTeams] = usePersist<Team[]>('teams', [])
   const [pickNo, setPickNo] = usePersist('pickNo', 0)
@@ -88,7 +98,9 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
     if (done) finishDraft(next, new Set([...taken, p.id]))
     else {
       setTeams(next)
-      setScreen('handover')
+      // hand the device over only between two humans; the computer and a lone human go straight on
+      const humans = names.filter((_, i) => !cpu[i]).length
+      setScreen(cpu[drafterAt(pickNo + 1, order)] || humans <= 1 ? 'draft' : 'handover')
     }
     setPickNo(pickNo + 1)
   }
@@ -122,6 +134,23 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
   }, [champ, onRecordResult, resultSaved, setResultSaved])
   const me = account?.username ?? profile?.name
 
+  // XP and stats for this device's player. Offline, "you" are the seat with your name, or the only human.
+  const mine = online ? seat.mySeat : (() => {
+    const named = names.findIndex((x) => !!me && x.toLowerCase() === me.toLowerCase())
+    if (named >= 0) return named
+    const humans = names.map((_, i) => i).filter((i) => !cpu[i])
+    return humans.length === 1 ? humans[0] : -1
+  })()
+  const countGame = (winner: number, fullSet = false) => {
+    const sig = `${gameId}`
+    try { if (localStorage.getItem(RECORDED) === sig) return; localStorage.setItem(RECORDED, sig) } catch { /* counted once per render at worst */ }
+    const hasCpu = cpu.some(Boolean)
+    track('game_done', { mode, players: n, online, cpu: hasCpu, won: mine >= 0 ? winner === mine : null })
+    record({ kind: 'game', mode, players: n, won: mine >= 0 ? winner === mine : null, online, cpu: hasCpu, fullSet: fullSet && winner === mine })
+  }
+  useEffect(() => { if (champ !== null) countGame(champ) }, [champ]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { track('screen', { screen }) }, [screen])
+
   const finishMatch = () => {
     if (!match) return
     const f = fixtures[current]
@@ -136,6 +165,7 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
   // throw the game away (new game or play again)
   const discard = (to: Screen) => {
     store.clear()
+    setGameId(Date.now())
     setTeams([])
     setPickNo(0)
     setFixtures([])
@@ -155,26 +185,32 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
     if (resume && !confirm('Start a new game? The game in progress will be discarded.')) return
     discard('home')
     setMode(m)
+    track('mode_start', { mode: m })
   }
 
   // same players, same mode, same settings: straight back to the spinner for a new pick order
   const rematch = () => {
-    const keep = { names, mode, chaos, auctionKind }
+    const keep = { names, cpu, mode, chaos, auctionKind }
     discard('spinner')
-    setNames(keep.names); setMode(keep.mode); setChaos(keep.chaos); setAuctionKind(keep.auctionKind)
+    setNames(keep.names); setCpu(keep.cpu); setMode(keep.mode); setChaos(keep.chaos); setAuctionKind(keep.auctionKind)
+    record({ kind: 'rematch' })
+    track('rematch', { mode: keep.mode })
   }
   const kicker = MODE_NAMES[mode]
 
   const views: Record<Screen, () => ReactNode> = {
     login: () => <Login onDone={(p) => { setProfile(p); setScreen('modes') }} onAccount={() => setScreen('modes')} />,
-    modes: () => <Landing onPlay={startMode} resume={resume ? { mode, onResume: () => { setScreen(resume); setResume(null) } } : undefined} />,
+    modes: () => <Landing onPlay={startMode} onDaily={() => setScreen('daily')} resume={resume ? { mode, onResume: () => { setScreen(resume); setResume(null) } } : undefined} />,
+    daily: () => <Daily account={account} />,
+    profile: () => <ProfileScreen name={me ?? 'Manager'} onInsights={() => setScreen('insights')} />,
+    insights: () => <Insights />,
     home: () =>
       mode === 'xi' ? <Home onStart={() => setScreen('setup')} />
       : mode === 'sot' ? <SotHero onStart={() => setScreen('setup')} />
       : mode === 'chaos' ? <ChaosHero onStart={() => setScreen('setup')} />
       : mode === 'winners' ? <WinnersHero onStart={() => setScreen('setup')} />
       : <AuctionHero onStart={() => setScreen('setup')} />,
-    setup: () => <Setup me={me} onStart={(ns) => { setNames(ns); setScreen('spinner') }} onOnline={onPlayOnline && (() => onPlayOnline(mode))} />,
+    setup: () => <Setup me={me} cpuAllowed={mode === 'xi' && !online} onStart={(ns, c) => { setNames(ns); setCpu(c); setScreen('spinner') }} onOnline={onPlayOnline && (() => onPlayOnline(mode))} />,
     spinner: () => <Spinner names={names} onDone={(o) => { setOrder(o); setScreen(mode === 'auction' ? 'size' : 'formation') }} />,
     size: () => !seat.isHost ? <HostOnly note="Waiting for the host to set up the auction">{null}</HostOnly> : <SizePick onDone={(size, kind) => { setAuctionKind(kind); setTeams(names.map((nm) => newTeam(nm, `${size}-a-side`, SMALL_SIDED[size]))); setScreen('modedraft') }} />,
     modedraft: () =>
@@ -192,7 +228,15 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
         extra={mode === 'chaos' && seat.isHost && <ChaosSettingsPanel value={chaos} onChange={setChaos} />}
       />
     ),
-    draft: () => (
+    draft: () => cpu[drafterAt(pickNo, order)] ? (
+      <CpuTurn
+        key={pickNo}
+        team={teams[drafterAt(pickNo, order)]}
+        slot={roundOf(pickNo, n)}
+        available={PLAYERS.filter((p) => !taken.has(p.id))}
+        onPick={pickPlayer}
+      />
+    ) : (
       <Draft teams={teams} order={order} pickNo={pickNo} teamIndex={drafterAt(pickNo, order)} slot={roundOf(pickNo, n)} taken={taken} onPick={pickPlayer} />
     ),
     handover: () => {
@@ -215,12 +259,12 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
         />
       )
     },
-    done: () => <DraftDone teams={teams} onAllDone={() => setScreen(mode === 'winners' ? 'career' : 'tournament')} next={mode === 'winners' ? 'Start the career' : undefined} />,
+    done: () => <DraftDone teams={teams} cpu={cpu} onAllDone={() => setScreen(mode === 'winners' ? 'career' : 'tournament')} next={mode === 'winners' ? 'Start the career' : undefined} />,
     career: () => (
       <Career
         teams={teams}
         kicker={kicker}
-        onChampion={(seat) => { if (onRecordResult && !resultSaved) { setResultSaved(true); onRecordResult(seat) } }}
+        onChampion={(seat, how) => { countGame(seat, how === 'set'); if (onRecordResult && !resultSaved) { setResultSaved(true); onRecordResult(seat) } }}
         onRematch={rematch}
         onReset={() => (online ? onLeaveOnline!(true) : discard('home'))}
         resetLabel={online ? 'Leave the game' : 'Pick another mode'}
@@ -285,13 +329,18 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
                 <UsersThree weight="bold" /> Friends{invites > 0 && <span className="badge num">{invites}</span>}
               </button>
             )}
-            <span className="avatar" aria-hidden>{me[0]?.toUpperCase()}</span>
-            <span>Hello, <b>{account ? `@${me}` : me}</b></span>
+            <button className="btn ghost sm" onClick={() => setScreen('daily')}>
+              <CalendarCheck weight="bold" /> Daily{!loadDaily()[dayKey()]?.result && <span className="dot" aria-label="not played today" />}
+            </button>
+            <button className="me-btn" onClick={() => setScreen('profile')} aria-label="Your profile">
+              <span className="avatar" aria-hidden>{me[0]?.toUpperCase()}</span>
+              <span>Hello, <b>{account ? `@${me}` : me}</b>{streakOf(loadDaily()) > 0 && <span className="small dim"> · 🔥 {streakOf(loadDaily())}</span>}</span>
+            </button>
             <button className="btn ghost sm" onClick={() => { saveProfile(null); setProfile(null); onSignOut?.(); discard('login') }} aria-label="Log out"><SignOut weight="bold" /></button>
           </div>
         )}
         {online && <span className="online-tag"><WifiHigh weight="bold" /> Online</span>}
-        {!['login', 'modes', 'home'].includes(screen) && (
+        {!['login', 'modes', 'home', 'daily', 'profile', 'insights'].includes(screen) && (
           <nav className="crumbs" aria-label="Progress">
             {steps.map(([label, ss], i) => (
               <span key={label} className={ss.includes(screen) ? 'on' : ''}>{i > 0 && '/ '}{label}</span>

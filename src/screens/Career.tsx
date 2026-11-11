@@ -12,7 +12,7 @@ import type { ResultCard } from '../engine/shareCard'
 import { HostOnly } from '../online/context'
 import Match from './Match'
 
-type Props = { teams: Team[]; kicker: string; onChampion: (seat: number) => void; onRematch: () => void; onReset: () => void; resetLabel: string }
+type Props = { teams: Team[]; kicker: string; onChampion: (seat: number, how: 'set' | 'most') => void; onRematch: () => void; onReset: () => void; resetLabel: string }
 type Watch = { who: number; season: number; tie: Tie }
 const CUPS = [['shield', 'Community Shield'], ['super', 'UEFA Super Cup'], ['fa', 'FA Cup'], ['efl', 'Carabao Cup'], ['ucl', 'Champions League']] as const
 const SHORT: Record<TrophyId, string> = { pl: 'PL', fa: 'FA', efl: 'EFL', shield: 'CS', ucl: 'UCL', super: 'USC' }
@@ -29,7 +29,7 @@ export default function Career({ teams, kicker, onChampion, onRematch, onReset, 
   const shown = careers.map((c) => c.slice(0, played))
   const verdict = played ? careerWinner(shown, played) : null
 
-  useEffect(() => { if (verdict) onChampion(verdict.winner) }, [verdict?.winner]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (verdict) onChampion(verdict.winner, verdict.how) }, [verdict?.winner]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (played) setTab(played) }, [played])
 
   if (watch) {

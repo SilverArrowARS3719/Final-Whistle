@@ -32,3 +32,16 @@ The anon key is meant to be public: the database's security rules (in `schema.sq
 
 ## Testing with friends before publishing
 Online play needs everyone to reach the same website. Until it's published, test with two browser windows on your own computer (one normal, one private/incognito, signed in as two different accounts).
+
+## Seeing who plays (Insights)
+The game records anonymous usage (a random id per browser: which screens are opened, which modes are finished, how long visits last). Players can switch it off in **Settings → Privacy**.
+
+To see everyone's numbers in the app:
+1. Run `supabase/schema.sql` again (it adds the `events` and `daily_results` tables).
+2. Sign in to the game with your own account, then in **SQL Editor** run (with your username):
+   ```sql
+   update public.profiles set is_admin = true where username = 'YOUR_USERNAME';
+   ```
+3. In the game, open your profile (click your name at the top), then **Game insights**.
+
+Insights shows: players and new players per day, how many came back the next day and a week later, average visit length, how many started vs finished each mode, and the screen people were on when they left without finishing.

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { MusicNotes, SlidersHorizontal, SpeakerHigh, SpeakerSlash, X } from '@phosphor-icons/react'
+import { MusicNotes, ShieldCheck, SlidersHorizontal, SpeakerHigh, SpeakerSlash, X } from '@phosphor-icons/react'
+import { setTracking, trackingOn } from '../online/track'
 import ColourLab from '../theme/ThemeLab'
 import Seg from './Seg'
 import { loadSound, setSound, sfx, type TrackId } from '../engine/sfx'
@@ -15,7 +16,7 @@ const TRACKS: { id: TrackId; name: string; desc: string }[] = [
 /** One floating button for per-device settings: colours and sound. Mounted once in main.tsx. */
 export default function QuickSettings() {
   const [open, setOpen] = useState(false)
-  const [tab, setTab] = useState<'Sound' | 'Colours'>('Sound')
+  const [tab, setTab] = useState<'Sound' | 'Colours' | 'Privacy'>('Sound')
 
   useEffect(() => {
     if (!open) return
@@ -46,8 +47,8 @@ export default function QuickSettings() {
                 <h3>Settings</h3>
                 <button className="btn ghost sm" onClick={() => setOpen(false)} aria-label="Close"><X weight="bold" /></button>
               </header>
-              <Seg id="qs-tab" options={['Sound', 'Colours'] as ('Sound' | 'Colours')[]} value={tab} onChange={setTab} />
-              {tab === 'Sound' ? <SoundPanel /> : <ColourLab />}
+              <Seg id="qs-tab" options={['Sound', 'Colours', 'Privacy'] as ('Sound' | 'Colours' | 'Privacy')[]} value={tab} onChange={setTab} />
+              {tab === 'Sound' ? <SoundPanel /> : tab === 'Colours' ? <ColourLab /> : <PrivacyPanel />}
             </motion.aside>
           </>
         )}
@@ -90,6 +91,21 @@ function SoundPanel() {
         <button className="btn sm" onClick={() => sfx.flip()}>Card flip</button>
         <button className="btn sm" onClick={() => sfx.perfect()}>Perfect XI</button>
       </div>
+    </div>
+  )
+}
+
+function PrivacyPanel() {
+  const [on, set] = useState(trackingOn)
+  return (
+    <div className="stack" style={{ gap: 16 }}>
+      <p className="small dim">
+        The Draft Room counts how the game is used: which screens you open, which modes you finish, how long a visit lasts.
+        It uses a random id for this browser. No names, emails or messages are sent. It helps decide what to fix and what to build next.
+      </p>
+      <button className={`btn ${on ? '' : 'primary'}`} aria-pressed={!on} onClick={() => { setTracking(!on); set(!on) }}>
+        <ShieldCheck weight="bold" /> {on ? 'Stop sharing usage stats' : 'Usage stats are off. Turn back on'}
+      </button>
     </div>
   )
 }

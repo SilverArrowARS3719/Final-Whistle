@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { ArrowRight, CaretLeft, CaretRight, LockSimple } from '@phosphor-icons/react'
+import { ArrowRight, CalendarCheck, CaretLeft, CaretRight, Fire, LockSimple } from '@phosphor-icons/react'
+import { dailyFor, dayKey, loadDaily, streakOf } from '../engine/daily'
 import { createPortal } from 'react-dom'
 
 export type Mode = 'xi' | 'sot' | 'chaos' | 'auction' | 'winners'
@@ -28,7 +29,11 @@ const ease = [0.16, 1, 0.3, 1] as const
 
 type Resume = { mode: Mode; onResume: () => void }
 
-export default function Landing({ onPlay, resume }: { onPlay: (m: Mode) => void; resume?: Resume }) {
+export default function Landing({ onPlay, onDaily, resume }: { onPlay: (m: Mode) => void; onDaily?: () => void; resume?: Resume }) {
+  const today = dayKey()
+  const history = loadDaily()
+  const todays = history[today]?.result
+  const streak = streakOf(history, today)
   const reduce = useReducedMotion()
   const [[i, dir], setSlide] = useState<[number, number]>([0, 1])
   // dir: +1 = new slide enters from the right (next / swipe left), -1 = from the left
@@ -46,7 +51,37 @@ export default function Landing({ onPlay, resume }: { onPlay: (m: Mode) => void;
   // preload every backdrop so slides never flash
   useEffect(() => SLIDES.forEach((x) => { new Image().src = x.img }), [])
 
-  const upcoming = [1, 2, 3].map((k) => (i + k) % SLIDES.length)
+  // the first card is the mode on the left; the next two follow
+  const shown = [0, 1, 2].map((k) => (i + k) % SLIDES.length)
+
+  // trackpad swipe (sideways scroll), mouse wheel and arrow keys switch modes; one step per gesture
+  const gesture = useRef({ acc: 0, until: 0 })
+  useEffect(() => {
+    const onWheel = (e: WheelEvent) => {
+      const sideways = Math.abs(e.deltaX) > Math.abs(e.deltaY)
+      const fitsScreen = document.documentElement.scrollHeight <= innerHeight + 4
+      if (!sideways && !fitsScreen) return // let tall pages scroll normally
+      const d = sideways ? e.deltaX : e.deltaY
+      const g = gesture.current
+      const now = performance.now()
+      if (now < g.until) { g.until = now + 180; return } // still the same flick: ignore its momentum
+      g.acc += d
+      if (Math.abs(g.acc) > 40) {
+        const dir = Math.sign(g.acc) // read now: the updater below may run after acc is reset
+        setSlide(([cur]) => [(cur + dir + SLIDES.length) % SLIDES.length, dir])
+        g.acc = 0
+        g.until = now + 450
+      }
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLElement && e.target.closest('input, textarea, [role=dialog]')) return
+      if (e.key === 'ArrowRight') setSlide(([cur]) => [(cur + 1) % SLIDES.length, 1])
+      if (e.key === 'ArrowLeft') setSlide(([cur]) => [(cur - 1 + SLIDES.length) % SLIDES.length, -1])
+    }
+    addEventListener('wheel', onWheel, { passive: true })
+    addEventListener('keydown', onKey)
+    return () => { removeEventListener('wheel', onWheel); removeEventListener('keydown', onKey) }
+  }, [])
 
   return (
     <>
@@ -98,6 +133,14 @@ export default function Landing({ onPlay, resume }: { onPlay: (m: Mode) => void;
               <b>Resume <ArrowRight weight="bold" /></b>
             </motion.button>
           )}
+          {onDaily && (
+            <motion.button className={`daily-pill ${todays ? 'done' : ''}`} onClick={onDaily} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+              <CalendarCheck weight="fill" />
+              <span>Daily Draft #{dailyFor(today).number}</span>
+              {todays ? <span className="dim">You scored <b className="num">{todays.points}/9</b></span> : <b>Play today's <ArrowRight weight="bold" /></b>}
+              {streak > 0 && <span className="streak"><Fire weight="fill" /> {streak}</span>}
+            </motion.button>
+          )}
           <span className="label">Mode {s.n}</span>
           <div className="title-mask">
             <AnimatePresence initial={false} custom={dir}>
@@ -124,15 +167,16 @@ export default function Landing({ onPlay, resume }: { onPlay: (m: Mode) => void;
         </div>
 
         <div className="slide-cards">
-          <span className="up-next">Up next</span>
-          {upcoming.map((k, pos) => {
+          <span className="up-next">Swipe to switch modes</span>
+          {shown.map((k, pos) => {
             const x = SLIDES[k]
             return (
               <motion.button
                 key={x.n}
                 layout
-                className={`slide-card ${pos === 0 ? 'next' : ''}`}
-                onClick={() => go(k, 1)}
+                className={`slide-card ${pos === 0 ? 'now' : ''}`}
+                onClick={() => (pos === 0 ? x.mode && onPlay(x.mode) : go(k, 1))}
+                aria-label={pos === 0 ? `Play ${x.title}` : `Show ${x.title}`}
                 transition={{ layout: { duration: 0.7, ease } }}
                 initial={{ opacity: 0, x: 80 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -140,7 +184,7 @@ export default function Landing({ onPlay, resume }: { onPlay: (m: Mode) => void;
               >
                 <span className="slide-card-title">{x.title}</span>
                 <img src={x.img} alt="" />
-                <span className="slide-card-foot">Mode {x.n}{!x.mode && ' · soon'}</span>
+                <span className="slide-card-foot">{pos === 0 ? <b>Now showing · tap to play</b> : <>Mode {x.n}{!x.mode && ' · soon'}</>}</span>
               </motion.button>
             )
           })}

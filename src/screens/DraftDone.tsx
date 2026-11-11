@@ -5,8 +5,9 @@ import { ArrowRight, Check } from '@phosphor-icons/react'
 import Pitch from '../components/Pitch'
 import type { Team } from '../engine/draft'
 
-export default function DraftDone({ teams, onAllDone, next = 'To the tournament' }: { teams: Team[]; onAllDone: () => void; next?: string }) {
-  const [done, setDone] = usePersist('done:flags', () => teams.map(() => false))
+export default function DraftDone({ teams, onAllDone, next = 'To the tournament', cpu = [] }: { teams: Team[]; onAllDone: () => void; next?: string; cpu?: boolean[] }) {
+  // the computer is always happy with its squad
+  const [done, setDone] = usePersist('done:flags', () => teams.map((_, i) => !!cpu[i]))
   const o = useOnline()
   return (
     <div>

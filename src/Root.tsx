@@ -8,6 +8,7 @@ import { signOut, useAccount } from './online/auth'
 import { OnlineContext, type OnlineInfo } from './online/context'
 import { createGame, fetchGame, inviteToGame, joinByCode, leaveGame, OnlineStore, recordResult, watchGame, type GameRow } from './online/game'
 import { useSocial } from './online/social'
+import { setTrackedUser } from './online/track'
 import { onlineReady } from './online/supabase'
 import Friends from './screens/Friends'
 import Lobby from './screens/Lobby'
@@ -28,6 +29,7 @@ export default function Root() {
   const [online, setOnline] = useState<{ game: GameRow; store: OnlineStore } | null>(null)
   const [pending, setPending] = useState<string | null>(saved.get) // an online game we left to look around
   const [notice, setNotice] = useState('')
+  useEffect(() => setTrackedUser(account?.id ?? null), [account?.id])
 
   const enter = useCallback((g: GameRow) => {
     setOnline((cur) => {

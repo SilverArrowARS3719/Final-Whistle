@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { DownloadSimple, ShareNetwork, X } from '@phosphor-icons/react'
 import { cardText, renderResultCard, type ResultCard } from '../engine/shareCard'
+import { record } from '../engine/progress'
+import { track } from '../online/track'
 
 /** "Share result" button: draws the card, previews it, then hands it to the phone's share sheet (or downloads it). */
 export default function ShareResult({ card, label = 'Share result' }: { card: ResultCard; label?: string }) {
@@ -19,6 +21,8 @@ export default function ShareResult({ card, label = 'Share result' }: { card: Re
       const blob = await renderResultCard(card)
       setFile(new File([blob], 'result.png', { type: 'image/png' }))
       setUrl(URL.createObjectURL(blob))
+      record({ kind: 'share' })
+      track('share', { what: card.kicker })
     } catch (e) {
       setError((e as Error).message)
     } finally {

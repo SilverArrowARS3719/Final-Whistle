@@ -289,6 +289,65 @@ begin
   end loop;
 end $$;
 
+-- ---------- Daily Draft: one result per account per day ----------
+create table if not exists public.daily_results (
+  user_id uuid not null references public.profiles on delete cascade default auth.uid(),
+  day date not null,
+  points int not null check (points between 0 and 9),
+  gf int not null check (gf between 0 and 60),
+  ga int not null check (ga between 0 and 60),
+  rating numeric(4, 1) not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, day)
+);
+alter table public.daily_results enable row level security;
+drop policy if exists "post own daily" on public.daily_results;
+create policy "post own daily" on public.daily_results for insert to authenticated with check (user_id = auth.uid());
+
+-- Everyone's score for one day: points, then goal difference, then XI rating. Flags friends and me.
+create or replace function public.daily_board(p_day date)
+returns table (username citext, points int, gd int, rating numeric, friend boolean, me boolean)
+language sql security definer set search_path = public as $$
+  select p.username, d.points, d.gf - d.ga, d.rating,
+    exists (select 1 from friendships f where f.status = 'accepted'
+      and ((f.requester = auth.uid() and f.addressee = d.user_id) or (f.addressee = auth.uid() and f.requester = d.user_id))),
+    d.user_id = auth.uid()
+  from daily_results d join profiles p on p.id = d.user_id
+  where d.day = p_day
+  order by d.points desc, d.gf - d.ga desc, d.rating desc, d.created_at
+  limit 100;
+$$;
+
+-- ---------- usage events (anonymous: a random id per browser, no names or emails) ----------
+alter table public.profiles add column if not exists is_admin boolean not null default false;
+create table if not exists public.events (
+  id bigint generated always as identity primary key,
+  at timestamptz not null default now(),
+  device text not null check (length(device) <= 64),
+  session text not null check (length(session) <= 64),
+  user_id uuid,
+  name text not null check (length(name) <= 40),
+  props jsonb check (props is null or length(props::text) <= 2000)
+);
+create index if not exists events_at on public.events (at);
+alter table public.events enable row level security;
+-- anyone may add events (signed in or not); nobody can read them directly
+drop policy if exists "add events" on public.events;
+create policy "add events" on public.events for insert to anon, authenticated
+  with check (user_id is null or user_id = auth.uid());
+
+-- The owner reads everything through this. Make yourself the owner once, in the SQL editor:
+--   update public.profiles set is_admin = true where username = 'YOUR_USERNAME';
+create or replace function public.admin_events(p_days int default 30)
+returns setof public.events
+language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from profiles where id = auth.uid() and is_admin) then
+    raise exception 'not allowed';
+  end if;
+  return query select * from events where at > now() - make_interval(days => least(p_days, 90)) order by at limit 100000;
+end $$;
+
 -- Live notifications for friend requests and invites.
 do $$ begin
   begin alter publication supabase_realtime add table public.friendships; exception when duplicate_object then null; end;

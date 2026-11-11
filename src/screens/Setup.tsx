@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowRight, WifiHigh } from '@phosphor-icons/react'
+import { ArrowRight, Robot, User, WifiHigh } from '@phosphor-icons/react'
 
 const FORMATS: [number, string, string][] = [
   [2, 'Head to head', 'One match decides it.'],
@@ -8,11 +8,19 @@ const FORMATS: [number, string, string][] = [
   [4, 'Knockout', 'Semi-finals, then a final.'],
 ]
 
-export default function Setup({ onStart, me, onOnline }: { onStart: (names: string[]) => void; me?: string; onOnline?: () => void }) {
+const CPU_NAMES = ['Robo Pep', 'Klopp-o-tron', 'Don Carlo 3000']
+
+type Props = { onStart: (names: string[], cpu: boolean[]) => void; me?: string; onOnline?: () => void; cpuAllowed?: boolean }
+
+export default function Setup({ onStart, me, onOnline, cpuAllowed = false }: Props) {
   const [count, setCount] = useState(2)
   const [names, setNames] = useState([me && me !== 'Guest' ? me : '', '', '', ''])
-  const used = names.slice(0, count).map((n, i) => n.trim() || `Player ${i + 1}`)
+  const [cpu, setCpu] = useState([false, false, false, false])
+  const isCpu = (i: number) => cpuAllowed && cpu[i]
+  let bots = 0
+  const used = names.slice(0, count).map((n, i) => (isCpu(i) ? CPU_NAMES[bots++] : n.trim() || `Player ${i + 1}`))
   const dupes = new Set(used.map((n) => n.toLowerCase())).size !== used.length
+  const humans = used.filter((_, i) => !isCpu(i)).length
 
   return (
     <div>
@@ -42,22 +50,30 @@ export default function Setup({ onStart, me, onOnline }: { onStart: (names: stri
                 style={{ overflow: 'hidden' }}
               >
                 <span className="seat num" aria-hidden>{i + 1}</span>
-                <input
-                  aria-label={`Player ${i + 1} name`}
-                  value={names[i]}
-                  maxLength={18}
-                  placeholder={`Player ${i + 1}`}
-                  onChange={(e) => setNames(names.map((n, j) => (j === i ? e.target.value : n)))}
-                />
+                {isCpu(i)
+                  ? <span className="cpu-name"><Robot weight="fill" /> {used[i]} <span className="small dim">computer</span></span>
+                  : <input
+                      aria-label={`Player ${i + 1} name`}
+                      value={names[i]}
+                      maxLength={18}
+                      placeholder={`Player ${i + 1}`}
+                      onChange={(e) => setNames(names.map((n, j) => (j === i ? e.target.value : n)))}
+                    />}
+                {cpuAllowed && i > 0 && (
+                  <button type="button" className={`btn sm ${isCpu(i) ? 'primary' : 'ghost'}`} aria-pressed={isCpu(i)} onClick={() => setCpu(cpu.map((c, j) => (j === i ? !c : c)))}>
+                    {isCpu(i) ? <><Robot weight="bold" /> CPU</> : <><User weight="bold" /> Human</>}
+                  </button>
+                )}
               </motion.label>
             ))}
           </AnimatePresence>
           {dupes && <p className="small" style={{ color: 'var(--hot)' }}>Each player needs a different name.</p>}
+          {cpuAllowed && <p className="small dim">On your own? Switch a seat to <b>CPU</b> and the computer drafts against you.</p>}
         </div>
       </div>
       <div className="row" style={{ justifyContent: 'flex-end', marginTop: 20 }}>
         {onOnline && <button className="btn glass lg" onClick={onOnline}><WifiHigh weight="bold" /> Play online with friends</button>}
-        <button className="btn primary lg" disabled={dupes} onClick={() => onStart(used)}>
+        <button className="btn primary lg" disabled={dupes || humans === 0} onClick={() => onStart(used, used.map((_, i) => isCpu(i)))}>
           Spin for pick order <ArrowRight weight="bold" />
         </button>
       </div>
