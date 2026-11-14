@@ -8,7 +8,7 @@ Takes about 10 minutes. You only do this once.
 
 ## 2. Create the database tables
 1. In the project, open **SQL Editor** → **New query**.
-2. Open `supabase/schema.sql` from this folder, copy all of it, paste it in, and click **Run**. It should say "Success". (Running it again later is safe.) **When the game gets new online features (like Seasons and rematches), run the whole file again** so the database has the new tables.
+2. Open `src/backend/schema.sql` from this folder, copy all of it, paste it in, and click **Run**. It should say "Success". (Running it again later is safe.) **When the game gets new online features (like Seasons and rematches), run the whole file again** so the database has the new tables.
 
 ## 3. Turn on sign-in
 **Email + password**
@@ -37,7 +37,7 @@ Online play needs everyone to reach the same website. Until it's published, test
 The game records anonymous usage (a random id per browser: which screens are opened, which modes are finished, how long visits last). Players can switch it off in **Settings → Privacy**.
 
 To see everyone's numbers in the app:
-1. Run `supabase/schema.sql` again (it adds the `events` and `daily_results` tables).
+1. Run `src/backend/schema.sql` again (it adds the `events` and `daily_results` tables).
 2. Sign in to the game with your own account, then in **SQL Editor** run (with your username):
    ```sql
    update public.profiles set is_admin = true where username = 'YOUR_USERNAME';
