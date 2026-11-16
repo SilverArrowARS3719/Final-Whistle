@@ -35,16 +35,22 @@ export function useAccount() {
 
 const fail = (e: { message: string } | null) => { if (e) throw new Error(e.message) }
 
-export async function signUp(email: string, password: string) {
-  const { data, error } = await supabase!.auth.signUp({ email, password })
+export async function signUp(email: string, password: string, birthYear?: number) {
+  const { data, error } = await supabase!.auth.signUp({ email, password, options: { data: birthYear ? { birth_year: birthYear } : undefined } })
   fail(error)
   return { needsConfirm: !data.session }
 }
 export async function signIn(email: string, password: string) {
   fail((await supabase!.auth.signInWithPassword({ email, password })).error)
 }
-export async function signInGoogle() {
-  fail((await supabase!.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })).error)
+export type Provider = 'google' | 'azure' | 'apple' // azure = Microsoft accounts in Supabase
+export async function signInWith(provider: Provider) {
+  fail((await supabase!.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.origin } })).error)
+}
+/** Deletes the signed-in account and everything tied to it on the server, then signs out. */
+export async function deleteMyAccount() {
+  fail((await supabase!.rpc('delete_my_account')).error)
+  await supabase!.auth.signOut()
 }
 export async function signOut() {
   await supabase!.auth.signOut()

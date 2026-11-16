@@ -51,7 +51,7 @@ export default function Friends({ me, social, onJoin, onChallenge, onRejoin, onS
           <h2>Friends</h2>
           <span className="dim">Signed in as <b style={{ color: 'var(--chalk)' }}>@{me.username}</b></span>
         </div>
-        <button className="btn lg" onClick={onSeasons}><Medal weight="fill" color="var(--accent)" /> Seasons</button>
+        <button className="btn lg" onClick={onSeasons}><Medal weight="fill" color="var(--accent)" /> Leagues</button>
       </div>
       {!social.loaded && <div className="skeleton-list" aria-busy="true" aria-label="Loading friends"><i /><i /><i /></div>}
       {msg && <p className={`small ${msg.ok ? 'accent' : ''}`} style={msg.ok ? undefined : { color: 'var(--hot)' }} role="status">{msg.text}</p>}

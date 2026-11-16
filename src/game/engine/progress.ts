@@ -43,7 +43,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'hat-trick', name: 'Hat-trick', desc: 'Play the Daily three days running.', xp: 100, done: (s) => s.bestStreak >= 3 },
   { id: 'show-off', name: 'Show-off', desc: 'Share a result.', xp: 40, done: (s) => s.shares >= 1 },
   { id: 'run-it-back', name: 'Run it back', desc: 'Play a rematch.', xp: 40, done: (s) => s.rematches >= 1 },
-  { id: 'full-house', name: 'Full house', desc: 'Finish a four-player game.', xp: 75, done: (s) => s.fourPlayer >= 1 },
+  { id: 'full-house', name: 'Full house', desc: 'Finish a game with four or more players.', xp: 75, done: (s) => s.fourPlayer >= 1 },
   { id: 'bragging', name: 'Bragging rights', desc: 'Win an online game.', xp: 100, done: (s) => s.onlineWon >= 1 },
   { id: 'full-kit', name: 'Full kit', desc: 'Finish a game in all five modes.', xp: 150, done: (s) => MODES.every((m) => (s.byMode[m]?.played ?? 0) > 0) },
   { id: 'flawless', name: 'Flawless', desc: 'Score 9/9 in a Daily Draft.', xp: 200, done: (s) => s.perfectDailies >= 1 },

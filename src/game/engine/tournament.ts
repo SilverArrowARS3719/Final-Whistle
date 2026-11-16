@@ -2,18 +2,26 @@ import { shuffle, type Rng } from './rng'
 
 export type Fixture = { a: number; b: number; stage: string; score?: [number, number]; pens?: [number, number] | null; winner?: number }
 
-// 2 players: one match. 3: round robin. 4: random semi draw, final added once semis are done.
+/** The formats players can pick: head to head, round robin, or a knockout of four or eight. */
+export const PLAYER_COUNTS = [2, 3, 4, 8] as const
+
+// Knockout rounds by how many teams are left in them.
+const ROUND = { 8: 'Quarter-final', 4: 'Semi-final', 2: 'Final' } as Record<number, string>
+const roundOf = (teams: number[]): Fixture[] =>
+  teams.length === 2 ? [{ a: teams[0], b: teams[1], stage: 'Final' }]
+    : Array.from({ length: teams.length / 2 }, (_, k) => ({ a: teams[2 * k], b: teams[2 * k + 1], stage: `${ROUND[teams.length]} ${k + 1}` }))
+
+// 2 players: one match. 3: round robin. 4 or 8: random knockout draw; each round is added once the last one is done.
 export function makeFixtures(n: number, rng: Rng): Fixture[] {
-  if (n === 2) return [{ a: 0, b: 1, stage: 'Final' }]
   if (n === 3) return [{ a: 0, b: 1, stage: 'Round 1' }, { a: 1, b: 2, stage: 'Round 2' }, { a: 0, b: 2, stage: 'Round 3' }]
-  const d = shuffle(rng, [0, 1, 2, 3])
-  return [{ a: d[0], b: d[1], stage: 'Semi-final 1' }, { a: d[2], b: d[3], stage: 'Semi-final 2' }]
+  return roundOf(shuffle(rng, Array.from({ length: n }, (_, i) => i)))
 }
 
 export function nextFixtures(n: number, fixtures: Fixture[]): Fixture[] {
-  if (n === 4 && fixtures.length === 2 && fixtures.every((f) => f.winner !== undefined))
-    return [...fixtures, { a: fixtures[0].winner!, b: fixtures[1].winner!, stage: 'Final' }]
-  return fixtures
+  if (n === 3 || !fixtures.every((f) => f.winner !== undefined) || fixtures.some((f) => f.stage === 'Final')) return fixtures
+  const size = Object.entries(ROUND).find(([, name]) => fixtures.at(-1)!.stage.startsWith(name))![0]
+  const winners = fixtures.filter((f) => f.stage.startsWith(ROUND[+size])).map((f) => f.winner!)
+  return [...fixtures, ...roundOf(winners)]
 }
 
 export type Row = { team: number; p: number; w: number; l: number; gf: number; ga: number; pts: number }

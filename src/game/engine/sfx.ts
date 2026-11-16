@@ -91,6 +91,15 @@ export const sfx = {
     ;[392, 523, 659].forEach((f, i) => tone(f, 0.05 + i * 0.09, 0.6, 'square', 0.06))
   },
   react: () => tone(1250, 0, 0.09, 'sine', 0.08, 1700),
+  /** One soft click per year on the age wheel; `edge` is the hard stop at either end. */
+  detent: (edge = false) => tone(edge ? 520 : 2400, 0, edge ? 0.07 : 0.018, edge ? 'triangle' : 'square', edge ? 0.08 : 0.03),
+  /** A key press in the password field, pitched slightly differently each time so typing sounds alive. */
+  key: () => tone(1400 + Math.random() * 500, 0, 0.025, 'triangle', 0.025),
+  reveal: () => tone(380, 0, 0.22, 'sine', 0.07, 1100),
+  conceal: () => tone(1100, 0, 0.2, 'sine', 0.06, 380),
+  strong: () => [784, 1175].forEach((f, i) => tone(f, i * 0.08, 0.35, 'triangle', 0.08)),
+  sparkle: () => [1319, 1568, 2093].forEach((f, i) => tone(f, i * 0.05, 0.25, 'sine', 0.05)),
+  kick: () => { tone(140, 0, 0.18, 'sine', 0.28, 50); tone(900, 0, 0.04, 'square', 0.05) },
 }
 
 // ---------- music ----------

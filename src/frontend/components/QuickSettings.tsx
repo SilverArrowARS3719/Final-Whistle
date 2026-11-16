@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { MusicNotes, ShieldCheck, SlidersHorizontal, SpeakerHigh, SpeakerSlash, X } from '@phosphor-icons/react'
 import { setTracking, trackingOn } from '../../backend/track'
+import { openLegal } from '../screens/Legal'
 import ColourLab from '../theme/ThemeLab'
 import Seg from './Seg'
 import { loadSound, setSound, sfx, type TrackId } from '../../game/engine/sfx'
@@ -100,12 +101,16 @@ function PrivacyPanel() {
   return (
     <div className="stack" style={{ gap: 16 }}>
       <p className="small dim">
-        The Draft Room counts how the game is used: which screens you open, which modes you finish, how long a visit lasts.
-        It uses a random id for this browser. No names, emails or messages are sent. It helps decide what to fix and what to build next.
+        With your OK, The Final Whistle keeps anonymous usage stats: which screens are opened, which modes get finished, how long a visit lasts.
+        It uses a random id for this browser. No names, emails or messages, and no ads. Saying no never blocks any part of the game.
       </p>
-      <button className={`btn ${on ? '' : 'primary'}`} aria-pressed={!on} onClick={() => { setTracking(!on); set(!on) }}>
-        <ShieldCheck weight="bold" /> {on ? 'Stop sharing usage stats' : 'Usage stats are off. Turn back on'}
+      <button className={`btn ${on ? '' : 'primary'}`} aria-pressed={on} onClick={() => { setTracking(!on); set(!on) }}>
+        <ShieldCheck weight="bold" /> {on ? 'Usage stats are on. Turn off' : 'Usage stats are off. Turn on'}
       </button>
+      <p className="small">
+        <button className="linkish" onClick={() => openLegal('Privacy')}>Privacy policy</button> · <button className="linkish" onClick={() => openLegal('Terms')}>Terms</button> · <button className="linkish" onClick={() => openLegal('Cookies')}>Cookies</button> · <button className="linkish" onClick={() => openLegal('Credits')}>Credits</button>
+      </p>
+      <p className="small dim">To delete everything, open your profile and choose "Delete my data".</p>
     </div>
   )
 }

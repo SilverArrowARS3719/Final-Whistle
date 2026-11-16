@@ -1,3 +1,4 @@
+import { PLAYER_COUNTS } from '../../game/engine/tournament'
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { ArrowRight, Copy, Crown, PaperPlaneTilt, SignOut } from '@phosphor-icons/react'
@@ -41,7 +42,7 @@ export default function Lobby({ game, me, friends, onInvite, onStart, onLeave }:
         <div className="row">
           <button className="btn ghost" onClick={onLeave}><SignOut weight="bold" /> {isHost ? 'Cancel game' : 'Leave'}</button>
           {isHost && (
-            <button className="btn primary lg" disabled={game.players.length < 2} onClick={onStart}>
+            <button className="btn primary lg" disabled={!(PLAYER_COUNTS as readonly number[]).includes(game.players.length)} onClick={onStart}>
               Start with {game.players.length} <ArrowRight weight="bold" />
             </button>
           )}
@@ -60,10 +61,11 @@ export default function Lobby({ game, me, friends, onInvite, onStart, onLeave }:
         </div>
 
         <div className="panel pad stack">
-          <h3>Players {game.players.length} / 4</h3>
+          <h3>Players {game.players.length} / 8</h3>
+          {game.players.length > 4 && game.players.length < 8 && <p className="small dim">A knockout needs 2, 3, 4 or 8 players. Waiting for {8 - game.players.length} more, or someone leaves.</p>}
           <div className="seats">
             <AnimatePresence initial={false}>
-              {[0, 1, 2, 3].map((i) => {
+              {Array.from({ length: game.players.length > 4 ? 8 : 4 }, (_, i) => i).map((i) => {
                 const p = game.players[i]
                 return (
                   <motion.div key={p?.id ?? `empty-${i}`} className={`seat-row ${p ? 'filled' : ''}`} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
@@ -88,7 +90,7 @@ export default function Lobby({ game, me, friends, onInvite, onStart, onLeave }:
               <div key={f.id} className="person">
                 <span>@{f.username}</span>
                 {inGame(f.id) ? <span className="small accent">In the lobby</span> : (
-                  <button className="btn ghost sm" disabled={sent.includes(f.id) || game.players.length >= 4} onClick={() => onInvite(f.id).then(() => setSent([...sent, f.id]))}>
+                  <button className="btn ghost sm" disabled={sent.includes(f.id) || game.players.length >= 8} onClick={() => onInvite(f.id).then(() => setSent([...sent, f.id]))}>
                     <PaperPlaneTilt weight="bold" /> {sent.includes(f.id) ? 'Invited' : 'Invite'}
                   </button>
                 )}

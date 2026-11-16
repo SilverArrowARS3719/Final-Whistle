@@ -12,7 +12,6 @@ import PlayerCard from '../components/PlayerCard'
 import { AUCTION, CHAOS, SOT } from '../../game/engine/config'
 import { CARDS, type Active, type Category } from '../../game/engine/chaos'
 import { newTeam } from '../../game/engine/draft'
-import { teamCap } from '../../game/engine/stickOrTwist'
 import { budgetFor } from './SizePick'
 
 const ease = [0.16, 1, 0.3, 1] as const
@@ -71,19 +70,17 @@ const DEAL = ['Kevin De Bruyne', 'Jordan Henderson', 'Zinedine Zidane', 'Hugo La
 
 export function SotHero({ onStart }: { onStart: () => void }) {
   const t = useTicker(2600)
-  const cap = teamCap()
   const dealt = DEAL[t % DEAL.length]
-  const total = 760 + ((t * 37) % 190) // illustrative running total for the meter
   const steps = [
     ['Deal', 'You get a random player whose natural position is your next slot. No choosing.'],
     ['Stick', 'Keep him. He is locked into the slot and the turn passes on.'],
     ['Twist', `Throw him away for another random one. ${SOT.twists} twists for the whole draft; discards are gone for everyone.`],
-    ['Settle', 'After 11 slots the total is checked against the cap. Over it is a bust; just under it is a Perfect XI.'],
+    ['Play', 'After 11 slots your dealt XI goes into the tournament like any other. Luck built it; tactics can still save it.'],
   ]
   return (
     <div className="mh sot">
       <Backdrop src="/img/sot.jpg" />
-      <Hero title="Stick. Twist." accent="Don't bust." lede="You don't pick players, you're dealt them. Gamble for better ones, but the whole XI has to fit under the cap." cta="Deal me in" onStart={onStart}>
+      <Hero title="Stick. Twist." accent="Hold your nerve." lede={`You don't pick players, you're dealt them. Keep the one you get, or gamble one of ${SOT.twists} twists on a random replacement. He might be worse.`} cta="Deal me in" onStart={onStart}>
         <div className="dealer">
           <div className="deck" aria-hidden>{[0, 1, 2].map((k) => <span key={k} style={{ translate: `${k * 5}px ${-k * 5}px` }} />)}</div>
           <AnimatePresence mode="popLayout">
@@ -100,10 +97,9 @@ export function SotHero({ onStart }: { onStart: () => void }) {
           </AnimatePresence>
           <div className="dealer-meter panel">
             <div className="row" style={{ justifyContent: 'space-between' }}>
-              <span className="dim small">Team total</span>
-              <b className="num">{total} <span className="dim">/ {cap}</span></b>
+              <span className="dim small">Twists left</span>
+              <b className="num">{SOT.twists - (t % (SOT.twists + 1))} <span className="dim">/ {SOT.twists}</span></b>
             </div>
-            <div className="meter tight"><motion.span animate={{ width: `${(total / cap) * 100}%` }} transition={{ duration: 0.8, ease }} /></div>
           </div>
         </div>
       </Hero>
@@ -123,14 +119,10 @@ export function SotHero({ onStart }: { onStart: () => void }) {
       </section>
 
       <section className="mh-split">
-        <motion.div className="mh-big num" {...reveal()}>{cap}</motion.div>
+        <motion.div className="mh-big num" {...reveal()}>{SOT.twists}</motion.div>
         <motion.div className="stack" {...reveal(1)}>
-          <h2>The cap is worked out from the player pool.</h2>
-          <p className="dim">It is 11 times the average rating plus a small margin, so it stays fair as the database grows.</p>
-          <div className="verdicts">
-            <div className="verdict-mini bust"><b>Bust</b><span>Over the cap: your best players are swapped for sub-75s until you're under.</span></div>
-            <div className="verdict-mini perfect"><b>Perfect XI</b><span>Within {SOT.perfectWindow} of the cap: every player gets +2 in the match.</span></div>
-          </div>
+          <h2>{SOT.twists} twists. Eleven slots.</h2>
+          <p className="dim">That's the whole tension. Twist too early and you'll be stuck with whoever turns up at the end. Every discard is gone for everyone, so a twist can also steal a star from the pool.</p>
         </motion.div>
       </section>
 

@@ -20,6 +20,18 @@ Takes about 10 minutes. You only do this once.
 2. Under **Authorized redirect URIs** add the callback URL Supabase shows you in **Authentication → Sign In / Providers → Google** (it looks like `https://YOUR-PROJECT.supabase.co/auth/v1/callback`).
 3. Copy the Google **Client ID** and **Client secret** into that Supabase Google provider page and enable it.
 
+**Microsoft** (Outlook, Hotmail, Xbox and work accounts)
+1. In https://portal.azure.com open **Microsoft Entra ID → App registrations → New registration**. Under supported account types pick "personal Microsoft accounts and any organisation".
+2. Add the redirect URI Supabase shows in **Authentication → Sign In / Providers → Azure** (Supabase calls Microsoft "Azure").
+3. Under **Certificates & secrets** create a client secret. Copy the Application (client) ID and the secret value into Supabase's Azure provider page and enable it.
+
+**Apple** (needs a paid Apple Developer account, $99 a year)
+1. In https://developer.apple.com go to **Certificates, Identifiers & Profiles**. Create an **App ID**, then a **Services ID** with **Sign in with Apple** turned on.
+2. In the Services ID's Sign in with Apple settings, add your Supabase project domain and the callback URL Supabase shows in **Authentication → Sign In / Providers → Apple**.
+3. Create a **Key** with Sign in with Apple enabled and download it.
+4. In Supabase's Apple provider page, fill in the Services ID, Team ID, Key ID and the key file's contents, then enable it.
+Until Apple is set up, the "Continue with Apple" button shows an error; Google and email still work.
+
 **Redirect URLs**
 - **Authentication → URL Configuration**: set **Site URL** to `http://localhost:5173`, and add `http://localhost:5173` under **Redirect URLs**. (When you publish, add the real website address too.)
 

@@ -1,4 +1,4 @@
--- The Draft Room: accounts, friends, online games, results.
+-- The Final Whistle: accounts, friends, online games, results.
 -- Paste this whole file into Supabase > SQL Editor > New query > Run. Safe to run again.
 
 create extension if not exists citext;
@@ -73,7 +73,7 @@ begin
   return g;
 end $$;
 
--- Join by code (lobby only, max 4 players). Joining twice is harmless.
+-- Join by code (lobby only, max 8 players). Joining twice is harmless.
 create or replace function public.join_game(p_code text) returns public.games
 language plpgsql security definer set search_path = public as $$
 declare g public.games; me public.profiles;
@@ -84,7 +84,7 @@ begin
   if g is null then raise exception 'No game with that code'; end if;
   if g.players @> jsonb_build_array(jsonb_build_object('id', me.id)) then return g; end if;
   if g.status <> 'lobby' then raise exception 'That game has already started'; end if;
-  if jsonb_array_length(g.players) >= 4 then raise exception 'That game is full (4 players)'; end if;
+  if jsonb_array_length(g.players) >= 8 then raise exception 'That game is full (8 players)'; end if;
   update games set players = players || jsonb_build_array(jsonb_build_object('id', me.id, 'username', me.username)), updated_at = now()
   where id = g.id returning * into g;
   return g;
@@ -129,13 +129,7 @@ alter table public.game_invites add column if not exists mode text; -- which gam
 alter table public.game_invites enable row level security;
 drop policy if exists "see own invites" on public.game_invites;
 create policy "see own invites" on public.game_invites for select to authenticated using (auth.uid() in (from_user, to_user));
-drop policy if exists "invite friends" on public.game_invites;
-create policy "invite friends" on public.game_invites for insert to authenticated with check (
-  from_user = auth.uid()
-  and exists (select 1 from games g where g.id = game_invites.game_id and g.players @> jsonb_build_array(jsonb_build_object('id', auth.uid())))
-  and exists (
-    select 1 from friendships f where f.status = 'accepted'
-      and least(f.requester, f.addressee) = least(from_user, to_user) and greatest(f.requester, f.addressee) = greatest(from_user, to_user)));
+-- (the "invite friends" rule is further down, after the league tables it refers to)
 drop policy if exists "dismiss invite" on public.game_invites;
 create policy "dismiss invite" on public.game_invites for delete to authenticated using (auth.uid() in (from_user, to_user));
 
@@ -174,7 +168,7 @@ create policy "host records result" on public.results for insert to authenticate
     exists (
       select 1 from games g where g.id = results.game_id and g.host = auth.uid()
         and (results.winner is null or g.players @> jsonb_build_array(jsonb_build_object('id', results.winner)))
-        and cardinality(results.players) between 2 and 4
+        and cardinality(results.players) between 2 and 8
         and not exists (select 1 from unnest(results.players) p where not g.players @> jsonb_build_array(jsonb_build_object('id', p))))
     and not exists (select 1 from results r where r.game_id = results.game_id and r.created_at > now() - interval '90 seconds'));
 
@@ -193,7 +187,10 @@ language sql security definer set search_path = public as $$
   order by wins desc, played asc, p.username;
 $$;
 
--- ---------- seasons: a league between friends ----------
+-- ---------- leagues: a permanent group of mates, played in one-year seasons ----------
+-- (The tables are still called seasons / season_members from the first version; a row is a league.)
+-- Season 1 runs for a year from the day the league was created, then season 2 starts, and so on.
+-- Every online game finished in that year counts if at least two members played in it. Most wins takes the season.
 -- Every online game finished during the season counts if at least two members played in it.
 -- Champion 3 points, everyone else who played 1. Ties broken by wins, then fewer games.
 create table if not exists public.seasons (
@@ -214,18 +211,18 @@ create table if not exists public.season_members (
 alter table public.seasons enable row level security;
 alter table public.season_members enable row level security;
 
-create or replace function public.create_season(p_name text, p_weeks int) returns public.seasons
+-- p_weeks is ignored: leagues never end, they just roll into the next season (kept so old app versions still work)
+create or replace function public.create_season(p_name text, p_weeks int default null) returns public.seasons
 language plpgsql security definer set search_path = public as $$
 declare s public.seasons; c text;
 begin
   if not exists (select 1 from profiles where id = auth.uid()) then raise exception 'Pick a username first'; end if;
-  if p_weeks not between 1 and 52 then raise exception 'A season lasts 1 to 52 weeks'; end if;
   loop
     c := '';
     for i in 1..6 loop c := c || substr('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 1 + floor(random() * 32)::int, 1); end loop;
     exit when not exists (select 1 from seasons where code = c);
   end loop;
-  insert into seasons (code, name, owner, ends_at) values (c, trim(p_name), auth.uid(), now() + make_interval(weeks => p_weeks)) returning * into s;
+  insert into seasons (code, name, owner, ends_at) values (c, trim(p_name), auth.uid(), 'infinity') returning * into s;
   insert into season_members (season_id, user_id) values (s.id, auth.uid());
   return s;
 end $$;
@@ -236,9 +233,9 @@ declare s public.seasons;
 begin
   if not exists (select 1 from profiles where id = auth.uid()) then raise exception 'Pick a username first'; end if;
   select * into s from seasons where code = upper(trim(p_code));
-  if s is null then raise exception 'No season with that code'; end if;
-  if s.ends_at < now() then raise exception 'That season has finished'; end if;
-  if (select count(*) from season_members where season_id = s.id) >= 20 then raise exception 'That season is full (20 players)'; end if;
+  if s is null then raise exception 'No league with that code'; end if;
+  if s.ends_at < now() then raise exception 'That league has closed'; end if;
+  if (select count(*) from season_members where season_id = s.id) >= 30 then raise exception 'That league is full (30 players)'; end if;
   insert into season_members (season_id, user_id) values (s.id, auth.uid()) on conflict do nothing;
   return s;
 end $$;
@@ -263,24 +260,29 @@ create or replace function public.my_seasons() returns table (id uuid, code text
 language sql security definer set search_path = public as $$
   select s.id, s.code, s.name, s.owner, s.starts_at, s.ends_at, (select count(*) from season_members x where x.season_id = s.id)
   from seasons s join season_members m on m.season_id = s.id and m.user_id = auth.uid()
-  order by s.ends_at < now(), s.ends_at;
+  order by s.starts_at desc;
 $$;
 
 -- The league table. form = last five results, newest first ('W' or 'L'); streak = current run of wins.
-create or replace function public.season_table(p_season uuid)
+-- One season's table. p_index: 1 for the first year, 2 for the second…; null means the season running now.
+drop function if exists public.season_table(uuid);
+create or replace function public.season_table(p_season uuid, p_index int default null)
 returns table (user_id uuid, username citext, played int, wins int, points int, streak int, best_streak int, form text, week_points int)
 language plpgsql security definer set search_path = public as $$
-declare s public.seasons; m record; outcomes boolean[]; stamps timestamptz[]; run int; best int; cur int;
+declare s public.seasons; m record; idx int; w_start timestamptz; w_end timestamptz; outcomes boolean[]; stamps timestamptz[]; run int; best int; cur int;
 begin
   select * into s from seasons where id = p_season;
   if s is null or not exists (select 1 from season_members where season_id = p_season and season_members.user_id = auth.uid()) then
-    raise exception 'Not in this season';
+    raise exception 'Not in this league';
   end if;
+  idx := coalesce(p_index, greatest(1, floor(extract(epoch from now() - s.starts_at) / (365.25 * 86400))::int + 1));
+  w_start := s.starts_at + make_interval(years => idx - 1);
+  w_end := s.starts_at + make_interval(years => idx);
   for m in select sm.user_id as uid, p.username as uname from season_members sm join profiles p on p.id = sm.user_id where sm.season_id = p_season loop
     select coalesce(array_agg(r.winner = m.uid order by r.created_at desc), '{}'), coalesce(array_agg(r.created_at order by r.created_at desc), '{}')
       into outcomes, stamps
     from results r
-    where m.uid = any(r.players) and r.created_at between s.starts_at and s.ends_at
+    where m.uid = any(r.players) and r.created_at >= w_start and r.created_at < w_end
       and (select count(*) from season_members x where x.season_id = p_season and x.user_id = any(r.players)) >= 2;
     run := 0; best := 0; cur := null;
     for i in 1..coalesce(array_length(outcomes, 1), 0) loop
@@ -298,6 +300,36 @@ begin
     return next;
   end loop;
 end $$;
+
+-- Past champions: for every finished season, whoever won the most games (ties: more points, then fewer games).
+create or replace function public.league_honours(p_season uuid)
+returns table (season int, username citext, wins int, played int)
+language plpgsql security definer set search_path = public as $$
+declare s public.seasons; n int; best record;
+begin
+  select * into s from seasons where id = p_season;
+  if s is null or not exists (select 1 from season_members where season_id = p_season and season_members.user_id = auth.uid()) then
+    raise exception 'Not in this league';
+  end if;
+  n := floor(extract(epoch from now() - s.starts_at) / (365.25 * 86400))::int; -- finished seasons so far
+  for i in 1..n loop
+    select t.username, t.wins, t.played into best from season_table(p_season, i) t
+      where t.played > 0 order by t.wins desc, t.points desc, t.played asc limit 1;
+    if best is not null then season := i; username := best.username; wins := best.wins; played := best.played; return next; end if;
+  end loop;
+end $$;
+
+-- Who may invite whom to a game: friends, or players in the same league.
+drop policy if exists "invite friends" on public.game_invites;
+create policy "invite friends" on public.game_invites for insert to authenticated with check (
+  from_user = auth.uid()
+  and exists (select 1 from games g where g.id = game_invites.game_id and g.players @> jsonb_build_array(jsonb_build_object('id', auth.uid())))
+  and (
+    exists (
+      select 1 from friendships f where f.status = 'accepted'
+        and least(f.requester, f.addressee) = least(from_user, to_user) and greatest(f.requester, f.addressee) = greatest(from_user, to_user))
+    -- league-mates can invite each other without being friends
+    or exists (select 1 from season_members a join season_members b on a.season_id = b.season_id where a.user_id = from_user and b.user_id = to_user)));
 
 -- ---------- Daily Draft: one result per account per day ----------
 create table if not exists public.daily_results (
@@ -359,6 +391,27 @@ begin
   return query select * from events where at > now() - make_interval(days => least(p_days, 90)) order by at limit 100000;
 end $$;
 
+-- ---------- delete my data ----------
+-- Removes the caller's account and everything linked to it. Profiles, friendships, invites, league
+-- memberships and daily results go with the user (on delete cascade); their usage events are deleted here,
+-- and finished results keep the game but lose the link to them.
+create or replace function public.delete_my_account() returns void
+language plpgsql security definer set search_path = public, auth as $$
+declare me uuid := auth.uid();
+begin
+  if me is null then raise exception 'Not signed in'; end if;
+  delete from public.events where user_id = me;
+  update public.results set players = array_remove(players, me) where me = any(players);
+  delete from public.games where host = me and status <> 'finished';
+  delete from auth.users where id = me;
+end $$;
+
+-- Anonymous usage events are tied to a random browser id, not a person; this lets that browser wipe them.
+create or replace function public.forget_device(p_device text) returns void
+language sql security definer set search_path = public as $$
+  delete from events where device = p_device and length(p_device) between 8 and 64;
+$$;
+
 -- ---------- locking down what the app may write ----------
 -- Row rules above say WHICH rows; these say which COLUMNS. Without them a player could set is_admin on their
 -- own profile, or rewrite who a friend request is from while accepting it.
@@ -386,6 +439,8 @@ do $$ declare f record; begin
     execute format('grant execute on function %s to authenticated', f.sig);
   end loop;
 end $$;
+-- …except this one, which visitors without an account need too (it only ever deletes their own browser's stats)
+grant execute on function public.forget_device(text) to anon;
 
 -- Live notifications for friend requests and invites.
 do $$ begin

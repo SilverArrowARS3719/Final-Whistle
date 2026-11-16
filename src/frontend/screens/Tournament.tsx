@@ -45,7 +45,7 @@ export default function Tournament({ teams, fixtures, kicker, onNext, onReset, o
   return (
     <div>
       <div className="screen-head">
-        <h2>{n === 3 ? 'Round robin' : n === 4 ? 'Knockout' : 'The decider'}</h2>
+        <h2>{n === 3 ? 'Round robin' : n >= 4 ? 'Knockout' : 'The decider'}</h2>
         {next && (
           <HostOnly note="Waiting for the host to start the next match">
             <button className="btn primary lg" onClick={onNext}>
@@ -59,16 +59,25 @@ export default function Tournament({ teams, fixtures, kicker, onNext, onReset, o
   )
 }
 
-function Results({ n, fixtures, name, final }: { n: number; fixtures: Fixture[]; name: (i: number) => string; final?: Fixture }) {
-  if (n === 4)
+function Results({ n, fixtures, name }: { n: number; fixtures: Fixture[]; name: (i: number) => string; final?: Fixture }) {
+  if (n === 4 || n === 8) {
+    // one column per round; rounds not drawn yet show what feeds them
+    const rounds = (n === 8 ? ['Quarter-final', 'Semi-final', 'Final'] : ['Semi-final', 'Final'])
+    const waiting: Record<string, string> = { 'Semi-final': 'Semi-finals: the quarter-final winners', Final: n === 8 ? 'Final: the two semi-final winners' : 'Final: the two semi-final winners' }
     return (
-      <div className="bracket">
-        <div className="stack">
-          {fixtures.filter((f) => f.stage.startsWith('Semi')).map((f, i) => <Card key={f.stage} f={f} name={name} i={i} />)}
-        </div>
-        {final ? <Card f={final} name={name} i={2} /> : <div className="panel fixture dim">Final: the two semi-final winners</div>}
+      <div className={`bracket b${n}`}>
+        {rounds.map((r, col) => {
+          const games = fixtures.filter((f) => f.stage.startsWith(r))
+          return (
+            <div key={r} className="stack bracket-col">
+              <span className="label">{r === 'Final' ? 'Final' : `${r}s`}</span>
+              {games.length ? games.map((f, i) => <Card key={f.stage} f={f} name={name} i={col * 4 + i} />) : <div className="panel fixture dim">{waiting[r]}</div>}
+            </div>
+          )
+        })}
       </div>
     )
+  }
   return (
     <div className="stack">
       {n === 3 && (

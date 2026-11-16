@@ -146,7 +146,7 @@ export function bestRating(d: Daily) {
 const EMOJI: Record<Outcome, string> = { W: '🟩', WP: '🟨', LP: '🟧', L: '🟥' }
 export function shareText(d: Daily, r: DailyResult, streak: number) {
   const lines = [
-    `The Draft Room · Daily #${d.number}`,
+    `The Final Whistle · Daily #${d.number}`,
     `${r.outcomes.map((o) => EMOJI[o]).join('')} ${r.points}/9`,
     r.scores.map((s, i) => `${s[0]}-${s[1]}${r.pens[i] ? 'p' : ''}`).join(' · '),
   ]

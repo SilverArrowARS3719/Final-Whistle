@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'motion/react'
-import { ArrowLeft, ArrowRight, Copy, Crown, Flame, Plus, SignOut, UserPlus } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowRight, Copy, Crown, Flame, Play, Plus, ShareNetwork, SignOut, Trophy, UserPlus } from '@phosphor-icons/react'
 import type { Account } from '../../backend/auth'
 import type { Person } from '../../backend/social'
-import { addToSeason, createSeason, daysLeft, joinSeason, leaveSeason, mySeasons, seasonTable, type Season, type SeasonRow } from '../../backend/seasons'
+import { addToSeason, createSeason, currentSeason, daysLeft, joinSeason, leagueHonours, leaveSeason, mySeasons, seasonEnds, seasonTable, type Honour, type Season, type SeasonRow } from '../../backend/seasons'
 import Seg from '../components/Seg'
 
-type Props = { me: Account; friends: Person[] }
+type Props = { me: Account; friends: Person[]; onPlay: (memberIds: string[], mode: string) => Promise<void> }
+const MODES: [string, string][] = [['xi', 'All-Time XI'], ['sot', 'Stick or Twist'], ['chaos', 'Chaos Draft'], ['auction', 'Auction'], ['winners', 'Team of Winners']]
 
-export default function Seasons({ me, friends }: Props) {
+export default function Seasons({ me, friends, onPlay }: Props) {
   const [list, setList] = useState<Season[] | null>(null)
   const [open, setOpen] = useState<Season | null>(null)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [name, setName] = useState('')
-  const [weeks, setWeeks] = useState(4)
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -34,56 +34,52 @@ export default function Seasons({ me, friends }: Props) {
     }
   }
 
-  if (open) return <SeasonTable season={open} me={me} friends={friends} onBack={() => { setOpen(null); load() }} />
+  if (open) return <SeasonTable season={open} me={me} friends={friends} onPlay={onPlay} onBack={() => { setOpen(null); load() }} />
 
   return (
     <div className="seasons-page">
       <div className="screen-head">
         <div className="stack" style={{ gap: 6 }}>
-          <h2>Seasons</h2>
-          <span className="dim">A league with your friends. Every online game you play together earns points.</span>
+          <h2>Leagues</h2>
+          <span className="dim">Your group of mates, like a mini-league. Anyone with the code can join, friends or not. A season lasts a year: play as many games as you like, and whoever wins the most is champion. Then the next season starts.</span>
         </div>
       </div>
       {msg && <p className="small" role="alert" style={{ color: 'var(--hot)' }}>{msg.text}</p>}
 
       <div className="friends-grid">
         <div className="stack">
-          <form className="panel pad stack" onSubmit={(e) => { e.preventDefault(); act(() => createSeason(name, weeks)) }}>
-            <h3>Start a season</h3>
+          <form className="panel pad stack" onSubmit={(e) => { e.preventDefault(); act(() => createSeason(name)) }}>
+            <h3>Start a league</h3>
             <label className="field">
               <span className="label">Name</span>
               <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="Sunday League" />
             </label>
-            <div className="field">
-              <span className="label">Length</span>
-              <Seg id="season-weeks" options={[2, 4, 8, 12]} value={weeks} onChange={setWeeks} label={(w) => `${w} weeks`} />
-            </div>
-            <button className="btn primary" disabled={busy || !name.trim()}>{busy ? <span className="spin" aria-hidden /> : <Plus weight="bold" />} Create season</button>
+            <button className="btn primary" disabled={busy || !name.trim()}>{busy ? <span className="spin" aria-hidden /> : <Plus weight="bold" />} Create league</button>
           </form>
           <form className="panel pad stack" onSubmit={(e) => { e.preventDefault(); act(() => joinSeason(code)) }}>
-            <h3>Join with a season code</h3>
+            <h3>Join with a league code</h3>
             <div className="row" style={{ flexWrap: 'nowrap' }}>
-              <input className="num code-input" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={6} placeholder="ABC123" aria-label="Season code" />
+              <input className="num code-input" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={6} placeholder="ABC123" aria-label="League code" />
               <button className="btn primary" disabled={busy || code.trim().length !== 6}>Join <ArrowRight weight="bold" /></button>
             </div>
           </form>
           <div className="panel pad stack">
-            <h3>How points work</h3>
-            <p className="small dim">Win the tournament: 3 points. Play and lose: 1 point. Games count when at least two members of the season played. A streak is wins in a row.</p>
+            <h3>How a season works</h3>
+            <p className="small dim">Each season runs for one year from the day the league started. Any online game where at least two members play counts. Most wins at the end of the year takes the title; ties go to points (3 for a win, 1 for playing), then fewer games. Champions are kept forever on the league's honours board.</p>
           </div>
         </div>
 
         <div className="panel pad stack">
-          <h3>Your seasons</h3>
-          {list === null && <div className="skeleton-list" aria-busy="true" aria-label="Loading seasons"><i /><i /></div>}
-          {list?.length === 0 && <p className="small dim">No seasons yet. Start one and share its code, or add friends to it.</p>}
+          <h3>Your leagues</h3>
+          {list === null && <div className="skeleton-list" aria-busy="true" aria-label="Loading leagues"><i /><i /></div>}
+          {list?.length === 0 && <p className="small dim">No leagues yet. Start one and send the code to your mates, or join one with a code someone sent you.</p>}
           {list?.map((s, i) => {
             const left = daysLeft(s)
             return (
               <motion.button key={s.id} className="season-row" onClick={() => setOpen(s)} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
                 <span className="stack" style={{ gap: 2 }}>
                   <b>{s.name}</b>
-                  <span className="small dim">{s.members} players · {left > 0 ? `${left} day${left === 1 ? '' : 's'} left` : 'Finished'}</span>
+                  <span className="small dim">{s.members} player{s.members === 1 ? '' : 's'} · Season {currentSeason(s)} · {left} day{left === 1 ? '' : 's'} left</span>
                 </span>
                 <ArrowRight weight="bold" />
               </motion.button>
@@ -95,20 +91,37 @@ export default function Seasons({ me, friends }: Props) {
   )
 }
 
-function SeasonTable({ season, me, friends, onBack }: { season: Season; me: Account; friends: Person[]; onBack: () => void }) {
+function SeasonTable({ season, me, friends, onBack, onPlay }: { season: Season; me: Account; friends: Person[]; onBack: () => void; onPlay: Props['onPlay'] }) {
+  const [mode, setMode] = useState('xi')
+  const [starting, setStarting] = useState(false)
+  const now = currentSeason(season)
+  const [shown, setShown] = useState(now)
+  const [honours, setHonours] = useState<Honour[]>([])
   const [rows, setRows] = useState<SeasonRow[] | null>(null)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
   const [added, setAdded] = useState<string[]>([])
-  const load = useCallback(() => seasonTable(season.id).then(setRows).catch((e) => setError(e.message)), [season.id])
+  const load = useCallback(() => { setRows(null); seasonTable(season.id, shown).then(setRows).catch((e) => setError(e.message)) }, [season.id, shown])
   useEffect(() => { load() }, [load])
+  useEffect(() => { leagueHonours(season.id).then(setHonours).catch(() => {}) }, [season.id])
 
   const left = daysLeft(season)
-  const finished = left <= 0
+  const finished = shown < now // looking at a past season
   const leader = rows?.[0]
   const notIn = friends.filter((f) => !rows?.some((r) => r.user_id === f.id))
   const copy = async () => {
     try { await navigator.clipboard.writeText(season.code); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch { /* code is on screen */ }
+  }
+  const invite = `Join my league "${season.name}" on The Final Whistle. Code: ${season.code}`
+  const share = async () => {
+    try {
+      if (navigator.share) await navigator.share({ title: season.name, text: invite })
+      else { await navigator.clipboard.writeText(invite); setCopied(true); setTimeout(() => setCopied(false), 1500) }
+    } catch { /* share sheet closed */ }
+  }
+  const play = async () => {
+    setStarting(true)
+    try { await onPlay((rows ?? []).map((r) => r.user_id).filter((id) => id !== me.id), mode) } catch (e) { setError((e as Error).message); setStarting(false) }
   }
   const add = async (id: string) => {
     try { await addToSeason(season.id, id); setAdded([...added, id]); load() } catch (e) { setError((e as Error).message) }
@@ -118,21 +131,38 @@ function SeasonTable({ season, me, friends, onBack }: { season: Season; me: Acco
     <div className="seasons-page">
       <div className="screen-head">
         <div className="stack" style={{ gap: 6 }}>
-          <button className="btn ghost sm" style={{ justifySelf: 'start' }} onClick={onBack}><ArrowLeft weight="bold" /> All seasons</button>
+          <button className="btn ghost sm" style={{ justifySelf: 'start' }} onClick={onBack}><ArrowLeft weight="bold" /> All leagues</button>
           <h2>{season.name}</h2>
           <span className="dim">
             {finished
-              ? leader && leader.played > 0 ? <>Finished. <b className="accent">@{leader.username}</b> won the season.</> : 'Finished.'
-              : `${left} day${left === 1 ? '' : 's'} left · ends ${new Date(season.ends_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`}
+              ? leader && leader.played > 0 ? <>Season {shown} is over. <b className="accent">@{leader.username}</b> won it with {leader.wins} win{leader.wins === 1 ? '' : 's'}.</> : `Season ${shown} is over. Nobody played.`
+              : <>Season {now} · {left} day{left === 1 ? '' : 's'} left · ends {seasonEnds(season).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}. Most wins takes it.</>}
           </span>
         </div>
-        <button className="season-code num" onClick={copy} aria-label={`Copy season code ${season.code}`}>
-          <span className="label">{copied ? 'Copied' : 'Season code'}</span>
+        <button className="season-code num" onClick={copy} aria-label={`Copy league code ${season.code}`}>
+          <span className="label">{copied ? 'Copied' : 'League code'}</span>
           <b>{season.code}</b>
           <Copy weight="bold" />
         </button>
       </div>
       {error && <p className="small" role="alert" style={{ color: 'var(--hot)' }}>{error}</p>}
+
+      {!finished && (
+        <div className="panel pad league-actions">
+          <div className="stack" style={{ gap: 10 }}>
+            <h3>Play a league game</h3>
+            <p className="small dim">Starts an online game and invites everyone in the league. It counts on this table.</p>
+            <Seg id="league-mode" options={MODES.map(([id]) => id)} value={mode} onChange={setMode} label={(m) => MODES.find(([id]) => id === m)![1]} />
+          </div>
+          <div className="row">
+            <button className="btn primary lg" onClick={play} disabled={starting || !rows || rows.length < 2}>{starting ? <span className="spin" aria-hidden /> : <Play weight="fill" />} Start and invite everyone</button>
+            <button className="btn lg" onClick={share}><ShareNetwork weight="bold" /> Invite with the code</button>
+          </div>
+          {rows && rows.length < 2 && <p className="small dim">You're the only one here. Send the code to your mates first.</p>}
+        </div>
+      )}
+
+      {now > 1 && <div style={{ marginBottom: 16 }}><Seg id="league-season" options={Array.from({ length: now }, (_, k) => now - k)} value={shown} onChange={setShown} label={(n) => (n === now ? `Season ${n} (now)` : `Season ${n}`)} /></div>}
 
       <div className="panel pad" style={{ overflowX: 'auto' }}>
         {rows === null ? <div className="skeleton-list" aria-busy="true" aria-label="Loading table"><i /><i /><i /></div> : (
@@ -155,10 +185,17 @@ function SeasonTable({ season, me, friends, onBack }: { season: Season; me: Acco
         )}
       </div>
 
+      <div className="panel pad stack" style={{ marginTop: 16 }}>
+        <h3><Trophy weight="fill" color="var(--amber)" /> Honours</h3>
+        {honours.length === 0
+          ? <p className="small dim">No champions yet. The first one is crowned when season 1 ends on {seasonEnds(season, 1).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}.</p>
+          : honours.map((h) => <div key={h.season} className="person"><span>Season {h.season}: <b>@{h.username}</b></span><span className="small dim num">{h.wins} wins from {h.played}</span></div>)}
+      </div>
+
       {!finished && (
         <div className="panel pad stack" style={{ marginTop: 16 }}>
           <h3>Add friends</h3>
-          {notIn.length === 0 && <p className="small dim">All your friends are in. Share the season code with anyone else.</p>}
+          {notIn.length === 0 && <p className="small dim">All your friends are in. Anyone else can join with the code.</p>}
           {notIn.map((f) => (
             <div key={f.id} className="person">
               <span>@{f.username}</span>
@@ -169,7 +206,7 @@ function SeasonTable({ season, me, friends, onBack }: { season: Season; me: Acco
       )}
       <div style={{ marginTop: 16 }}>
         <button className="btn ghost" onClick={async () => { if (confirm(`Leave ${season.name}? Your points stay in the history but you drop off the table.`)) { await leaveSeason(season.id).catch(() => {}); onBack() } }}>
-          <SignOut weight="bold" /> Leave season
+          <SignOut weight="bold" /> Leave league
         </button>
       </div>
     </div>

@@ -7,7 +7,7 @@ import { drafterAt, newTeam } from './draft'
 import { makeRng } from './rng'
 import { BENCH_SLOTS, ROUNDS, canPlay, eligible, spinFor, type SlotPick } from './winners'
 
-// two to four bots draft full 20-man squads with the real rules
+// two to eight bots draft full 20-man squads with the real rules
 function botDraft(n: number, seed: number) {
   const rng = makeRng(seed)
   const teams = Array.from({ length: n }, (_, i) => newTeam(`Bot ${i} FC`, '4-4-2'))
@@ -63,7 +63,7 @@ describe('team of winners data', () => {
 describe('team of winners draft', () => {
   it('bots draft 300 full games with no dead ends, no repeats, no same-round club clashes', () => {
     for (let d = 0; d < 300; d++) {
-      const teams = botDraft(2 + (d % 3), d + 1)
+      const teams = botDraft([2, 3, 4, 8][d % 4], d + 1)
       for (const t of teams) {
         expect(t.picks.every(Boolean)).toBe(true)
         expect(t.bench.length).toBe(BENCH_SLOTS)

@@ -1,7 +1,8 @@
 // Anonymous usage tracking. Each browser gets a random id (no names, no emails); events go to the
 // Supabase `events` table when online is set up, and the last 2,000 also stay on this device so the
-// Insights page works offline too. Players can switch it off in Settings.
+// Insights page works offline too. Off until the player accepts it in the cookie banner; Settings can turn it off again.
 import { supabase } from './supabase'
+import { consent, setConsent } from './consent'
 import { addDays, dayKey } from '../game/engine/daily'
 
 export type Ev = { name: string; device: string; session: string; user_id?: string | null; at: string; props?: Record<string, unknown> }
@@ -14,18 +15,26 @@ const ls = {
 }
 const uid = () => (crypto.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`)
 
-export const deviceId = (() => { const d = ls.get(DEVICE) ?? uid(); ls.set(DEVICE, d); return d })()
-const firstSeen = (() => { const f = ls.get(FIRST) ?? new Date().toISOString(); ls.set(FIRST, f); return f })()
+// the random id and first-visit date are only stored once tracking is allowed
+let device: string | null = ls.get(DEVICE)
+let firstSeen: string = ls.get(FIRST) ?? new Date().toISOString()
+const ensureIds = () => {
+  if (!device) { device = uid(); ls.set(DEVICE, device) }
+  if (!ls.get(FIRST)) ls.set(FIRST, firstSeen)
+  return device
+}
+export const deviceId = () => device ?? ensureIds()
 const session = uid()
 const started = Date.now()
 let userId: string | null = null
 let lastScreen = ''
 let queue: Ev[] = []
 
-export const trackingOn = () => ls.get(OPT_OUT) !== '1'
+export const trackingOn = () => consent() === 'all' && ls.get(OPT_OUT) !== '1'
 export function setTracking(on: boolean) {
+  setConsent(on ? 'all' : 'necessary')
   if (on) ls.del(OPT_OUT)
-  else { ls.set(OPT_OUT, '1'); queue = [] }
+  else { ls.set(OPT_OUT, '1'); queue = []; ls.del(LOCAL) }
 }
 export const setTrackedUser = (id: string | null) => { userId = id }
 
@@ -35,7 +44,7 @@ export function localEvents(): Ev[] {
 
 export function track(name: string, props?: Record<string, unknown>) {
   if (!trackingOn()) return
-  const ev: Ev = { name, device: deviceId, session, user_id: userId, at: new Date().toISOString(), props }
+  const ev: Ev = { name, device: ensureIds(), session, user_id: userId, at: new Date().toISOString(), props }
   if (name === 'screen') lastScreen = String(props?.screen ?? '')
   ls.set(LOCAL, JSON.stringify([...localEvents(), ev].slice(-2000)))
   if (supabase) queue.push(ev)
@@ -60,8 +69,9 @@ function flushOnExit() {
 }
 
 export function startTracking() {
+  firstSeen = ls.get(FIRST) ?? firstSeen
   const days = Math.floor((Date.now() - Date.parse(firstSeen)) / 86_400_000)
-  track('app_open', { returning: days > 0 || localEvents().some((e) => e.name === 'session_end'), days_since_first: days, w: window.innerWidth, ref: document.referrer ? new URL(document.referrer).hostname : '' })
+  track('app_open', { returning: days > 0 || localEvents().some((e) => e.name === 'session_end'), days_since_first: days })
   setInterval(flush, 8000)
   addEventListener('pagehide', flushOnExit)
 }
@@ -136,4 +146,12 @@ export async function fetchAllEvents(days = 30): Promise<Ev[]> {
   const { data, error } = await supabase.rpc('admin_events', { p_days: days })
   if (error) throw new Error(error.message.includes('not allowed') ? 'Only the owner account can see everyone’s data.' : error.message)
   return data as Ev[]
+}
+
+/** "Delete my data" for usage stats: wipes this browser's events here and on the server, and its random id. */
+export async function forgetThisDevice() {
+  const d = ls.get(DEVICE)
+  ls.del(LOCAL); ls.del(DEVICE); ls.del(FIRST)
+  device = null
+  if (supabase && d) await supabase.rpc('forget_device', { p_device: d })
 }

@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
-import { ChartLineUp, Fire, LockSimple, Medal, Palette } from '@phosphor-icons/react'
+import { ChartLineUp, Compass, Fire, LockSimple, Medal, Palette, Trash } from '@phosphor-icons/react'
+import { deleteMyAccount } from '../../backend/auth'
+import { forgetThisDevice } from '../../backend/track'
+import { openLegal } from './Legal'
+import { resetOnboarding } from '../components/Onboarding'
 import { ACHIEVEMENTS, levelOf, loadProgress, onProgress, paletteLevel, type Progress } from '../../game/engine/progress'
 import { PALETTES } from '../theme/palettes'
 import { dayKey, loadDaily, streakOf } from '../../game/engine/daily'
@@ -13,7 +17,20 @@ export function useProgress() {
   return p
 }
 
-export default function Profile({ name, onInsights }: { name: string; onInsights: () => void }) {
+export default function Profile({ name, onInsights, signedIn, onDeleted }: { name: string; onInsights: () => void; signedIn: boolean; onDeleted: () => void }) {
+  const [confirming, setConfirming] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [delError, setDelError] = useState('')
+  const wipe = async () => {
+    setDeleting(true); setDelError('')
+    try {
+      await forgetThisDevice()
+      if (signedIn) await deleteMyAccount()
+      // everything this game keeps in the browser
+      try { Object.keys(localStorage).filter((k) => k.startsWith('fw-')).forEach((k) => localStorage.removeItem(k)) } catch { /* nothing stored */ }
+      onDeleted()
+    } catch (e) { setDelError((e as Error).message); setDeleting(false) }
+  }
   const p = useProgress()
   const lv = levelOf(p.xp)
   const s = p.stats
@@ -91,7 +108,23 @@ export default function Profile({ name, onInsights }: { name: string; onInsights
                 </div>
               )}
           </section>
-          <button className="btn ghost" style={{ justifySelf: 'start' }} onClick={onInsights}><ChartLineUp weight="bold" /> Game insights</button>
+          <div className="row"><button className="btn ghost" onClick={() => { resetOnboarding(); location.reload() }}><Compass weight="bold" /> Replay the tour</button><button className="btn ghost" onClick={onInsights}><ChartLineUp weight="bold" /> Game insights</button></div>
+          <section className="panel pad stack danger-zone">
+            <h3><Trash weight="bold" /> Delete my data</h3>
+            <p className="small dim">{signedIn
+              ? 'Deletes your account, username, friends, league places, results and usage stats from our servers, and everything saved on this device. This can\'t be undone.'
+              : 'Deletes everything saved on this device (profile, XP, saved games, Daily Draft history) and any anonymous usage stats from this browser. This can\'t be undone.'}</p>
+            {!confirming
+              ? <button className="btn" style={{ justifySelf: 'start' }} onClick={() => setConfirming(true)}>Delete my data</button>
+              : (
+                <div className="row">
+                  <button className="btn danger" onClick={wipe} disabled={deleting} autoFocus>{deleting ? <span className="spin" aria-hidden /> : <Trash weight="bold" />} Yes, delete everything</button>
+                  <button className="btn ghost" onClick={() => setConfirming(false)} disabled={deleting}>Keep my data</button>
+                </div>
+              )}
+            {delError && <p className="small" role="alert" style={{ color: 'var(--hot)' }}>{delError}</p>}
+            <p className="small"><button className="linkish" onClick={() => openLegal('Privacy')}>Privacy policy</button> · <button className="linkish" onClick={() => openLegal('Terms')}>Terms</button></p>
+          </section>
         </div>
       </div>
     </div>

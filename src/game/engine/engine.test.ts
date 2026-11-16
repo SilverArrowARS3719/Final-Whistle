@@ -7,7 +7,7 @@ import { penalty } from './position'
 import { makeRng } from './rng'
 import { simulateMatch, statsAt } from './sim'
 import { standings, type Fixture } from './tournament'
-import { deal, neededPerSlot, settle, teamCap, teamTotal } from './stickOrTwist'
+import { deal } from './stickOrTwist'
 import type { Tactics } from './tactics'
 
 let uid = 10_000
@@ -223,46 +223,12 @@ describe('analysis', () => {
 })
 
 describe('stick or twist', () => {
-  function botRates(margin: number, twists: number, n = 1000, players = 2) {
-    let bust = 0, perfect = 0
-    const cap = teamCap(11, margin)
-    for (let d = 0; d < n; d++) {
-      const rng = makeRng(d + 1)
-      let pool = [...PLAYERS]
-      const teams = Array.from({ length: players }, (_, i) => newTeam('T' + i, '4-3-3'))
-      const left = teams.map(() => twists)
-      for (let r = 0; r < 11; r++) for (let k = 0; k < players; k++) {
-        const ti = r % 2 ? players - 1 - k : k
-        const t = teams[ti], pos = slotsOf(t)[r].pos
-        let p = deal(pool, pos, rng)
-        while (left[ti] > 0 && p.ovr < neededPerSlot(teamTotal(t), cap, 11 - r)) {
-          pool = pool.filter((x) => x !== p); left[ti]--; p = deal(pool, pos, rng)
-        }
-        pool = pool.filter((x) => x !== p)
-        t.picks[r] = p
-      }
-      for (const t of teams) { const v = settle(t, pool, cap, rng).verdict.kind; if (v === 'bust') bust++; if (v === 'perfect') perfect++ }
-    }
-    return { bust: bust / (n * players), perfect: perfect / (n * players), cap }
-  }
-  it('cap comes from the data and the bot hits the bust / perfect targets', async () => {
-    const { SOT } = await import('./config')
-    const r = botRates(SOT.capMargin, SOT.twists)
-    console.log('stick or twist', r)
-    expect(r.bust).toBeGreaterThan(0.25)
-    expect(r.bust).toBeLessThan(0.4)
-    expect(r.perfect).toBeGreaterThan(0.05)
-    expect(r.perfect).toBeLessThan(0.15)
-  })
-  it('a bust always ends at or under the cap', () => {
+  it('deals a natural fit for every slot of every formation', () => {
     const rng = makeRng(5)
-    const t = newTeam('Greedy', '4-3-3')
-    t.picks = [...PLAYERS].sort((a, b) => b.ovr - a.ovr).slice(0, 11)
-    const cap = teamCap()
-    const pool = PLAYERS.filter((p) => !t.picks.includes(p))
-    const { team, verdict } = settle(t, pool, cap, rng)
-    expect(verdict.kind).toBe('bust')
-    expect(teamTotal(team)).toBeLessThanOrEqual(cap)
+    for (const name of Object.keys(FORMATIONS)) {
+      const t = newTeam('T', name)
+      for (const s of slotsOf(t)) expect(deal(PLAYERS, s.pos, rng).positions).toContain(s.pos)
+    }
   })
 })
 
@@ -418,5 +384,30 @@ describe('online sync (diff + apply)', { timeout: 30_000 }, () => { // first imp
     expect(diff({ x: { a: 1, b: 2 } }, { x: { a: 1 } })).toEqual([{ path: ['x'], value: { a: 1 } }])
     expect(diff({ p: PLAYERS[1] }, { p: PLAYERS[2] })).toEqual([{ path: ['p'], value: PLAYERS[2] }])
     expect(diff({ p: PLAYERS[1] }, { p: PLAYERS[1] })).toEqual([])
+  })
+})
+
+describe('eight-team knockout', () => {
+  it('quarter-finals, then semis, then a final, with one champion', async () => {
+    const { makeFixtures, nextFixtures, champion } = await import('./tournament')
+    let f = makeFixtures(8, makeRng(3))
+    expect(f.map((x) => x.stage)).toEqual(['Quarter-final 1', 'Quarter-final 2', 'Quarter-final 3', 'Quarter-final 4'])
+    expect(new Set(f.flatMap((x) => [x.a, x.b])).size).toBe(8)
+    const play = () => { f = nextFixtures(8, f.map((x) => (x.winner === undefined ? { ...x, score: [1, 0] as [number, number], winner: x.a } : x))) }
+    play()
+    expect(f.filter((x) => x.stage.startsWith('Semi'))).toHaveLength(2)
+    expect(champion(8, f)).toBeNull()
+    play()
+    expect(f.at(-1)!.stage).toBe('Final')
+    play()
+    expect(champion(8, f)).toBe(f.at(-1)!.a)
+    expect(f).toHaveLength(7)
+  })
+  it('the old four-team bracket still works', async () => {
+    const { makeFixtures, nextFixtures } = await import('./tournament')
+    let f = makeFixtures(4, makeRng(1))
+    expect(f.map((x) => x.stage)).toEqual(['Semi-final 1', 'Semi-final 2'])
+    f = nextFixtures(4, f.map((x) => ({ ...x, winner: x.b })))
+    expect(f.at(-1)).toMatchObject({ stage: 'Final', a: f[0].b, b: f[1].b })
   })
 })

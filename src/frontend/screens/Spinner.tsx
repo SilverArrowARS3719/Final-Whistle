@@ -7,7 +7,7 @@ import { makeRng, shuffle } from '../../game/engine/rng'
 import { sfx } from '../../game/engine/sfx'
 
 // Wheel segment colours: tints of the pitch/chalk palette plus the accent, so names stay readable in dark ink.
-const COLORS = ['#d2ef5b', '#e9eee4', '#8fc9a0', '#c9d3c4']
+const COLORS = ['#d2ef5b', '#e9eee4', '#8fc9a0', '#c9d3c4', '#f3c74b', '#b9d7f0', '#e8b4a0', '#a8e0c8']
 const BULBS = 24
 
 export default function Spinner({ names, onDone }: { names: string[]; onDone: (order: number[]) => void }) {

@@ -1,7 +1,7 @@
 // Every tunable number in the game lives here.
 import type { Pos } from '../data/players'
 
-export const APP_NAME = 'The Draft Room'
+export const APP_NAME = 'The Final Whistle'
 export const GAME_NAME = 'All-Time XI' // Game Mode 1
 export const PICK_SECONDS = 30
 export const AUTOPICK_MAX_OVR = 79 // "below 80"
@@ -9,7 +9,7 @@ export const BENCH_SIZE = 3
 export const MATCH_PLAYBACK_MS = 30_000
 
 // Stick or Twist
-export const SOT = { capMargin: 2.25, twists: 5, decisionSeconds: 15, perfectWindow: 5, bustReplaceMax: 74 }
+export const SOT = { twists: 6, decisionSeconds: 15 }
 // Chaos Draft
 export const CHAOS = {
   weights: { common: 0.6, rare: 0.3, legendary: 0.1 },
@@ -70,4 +70,14 @@ export const CAREER = {
   depthWeight: 0.15, // a thin bench costs this share of the XI-bench gap
   uclDirect: 16, uclPlayoff: 10, // league-phase points for the last 16 / knockout play-off
   uclQualify: 4, // finish in the top 4 to play the Champions League next season
+}
+
+/** Who runs the game, shown on the legal pages. Fill in the contact details before publishing. */
+export const LEGAL = {
+  operator: 'The Final Whistle', // the team or person responsible for the app
+  contact: 'thefinalwhistle53@gmail.com', // public contact for privacy requests and questions
+  country: 'Singapore', // where the team is based; Singapore's PDPA applies
+  updated: '16 November 2026',
+  minAge: 13, // youngest age for an online account
+  parentAge: 16, // below this, a parent or guardian must agree to an online account
 }

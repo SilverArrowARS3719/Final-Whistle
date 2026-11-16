@@ -12,7 +12,7 @@ type Slide = { mode: Mode | null; n: number; title: string; line: string; img: s
 
 const SLIDES: Slide[] = [
   { mode: 'xi', n: 1, title: 'All-Time XI', line: 'Draft your best XI of all time. If someone already took him, he is gone.', img: '/img/xi.jpg', glow: 'var(--accent-rgb)' },
-  { mode: 'sot', n: 2, title: 'Stick or Twist', line: "You're dealt the players. Gamble for better ones, but don't bust the cap.", img: '/img/sot.jpg', glow: '243 199 75' },
+  { mode: 'sot', n: 2, title: 'Stick or Twist', line: "You're dealt the players. Keep them or gamble a twist on someone better.", img: '/img/sot.jpg', glow: '243 199 75' },
   { mode: 'chaos', n: 3, title: 'Chaos Draft', line: 'A normal draft, until the cards start flipping.', img: '/img/chaos.jpg', glow: '108 195 255' },
   { mode: 'auction', n: 4, title: 'Auction', line: 'Open or blind bidding with a fixed budget. Build a 5 or 7-a-side team without going broke.', img: '/img/auction.jpg', glow: '231 199 104' },
   { mode: 'winners', n: 5, title: 'Team of Winners', line: 'Spin for a trophy, take a player from whoever holds it. Then try to win everything in three seasons.', img: '/img/winners.jpg', glow: '255 170 80' },

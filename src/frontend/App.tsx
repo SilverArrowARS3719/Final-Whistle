@@ -7,18 +7,21 @@ import { record } from '../game/engine/progress'
 import { track } from '../backend/track'
 import { levelOf } from '../game/engine/progress'
 import DailyChip from './components/DailyChip'
+import Onboarding, { onboarded } from './components/Onboarding'
+import Welcome, { welcomed } from './components/Welcome'
 import CpuTurn from './components/CpuTurn'
 import Daily from './screens/Daily'
 import ProfileScreen, { useProgress } from './screens/Profile'
 import Insights from './screens/Insights'
+import Legal, { type LegalTab } from './screens/Legal'
 import { effectiveOvr } from '../game/engine/position'
 import { makeRng } from '../game/engine/rng'
 import { simulateMatch, type MatchResult } from '../game/engine/sim'
 import type { Tactics } from '../game/engine/tactics'
 import { champion, makeFixtures, nextFixtures, type Fixture } from '../game/engine/tournament'
 import Landing, { type Mode } from './screens/Landing'
-import Login, { loadProfile, saveProfile, type Profile } from './screens/Login'
-import { SignOut, UsersThree, WifiHigh } from '@phosphor-icons/react'
+import Login, { loadProfile, openLoginOn, saveProfile, type Profile } from './screens/Login'
+import { SignIn, SignOut, Trophy, UsersThree, WifiHigh } from '@phosphor-icons/react'
 import type { Account } from '../backend/auth'
 import { HostOnly, useOnline } from './online'
 import StickOrTwist from './screens/StickOrTwist'
@@ -48,7 +51,7 @@ import Tournament from './screens/Tournament'
 
 const MODE_NAMES: Record<Mode, string> = { xi: 'All-Time XI', sot: 'Stick or Twist', chaos: 'Chaos Draft', auction: 'Auction', winners: 'Team of Winners' }
 
-type Screen = 'login' | 'modes' | 'home' | 'setup' | 'spinner' | 'formation' | 'size' | 'draft' | 'handover' | 'modedraft' | 'done' | 'tournament' | 'tactics' | 'match' | 'career' | 'daily' | 'profile' | 'insights'
+type Screen = 'legal' | 'login' | 'modes' | 'home' | 'setup' | 'spinner' | 'formation' | 'size' | 'draft' | 'handover' | 'modedraft' | 'done' | 'tournament' | 'tactics' | 'match' | 'career' | 'daily' | 'profile' | 'insights'
 
 // Where Back goes from each pre-draft step. Once picks start, leaving needs the logo (with a confirm).
 const BACK: Partial<Record<Screen, Screen>> = { home: 'modes', setup: 'home', spinner: 'setup', formation: 'spinner', size: 'spinner', daily: 'modes', profile: 'modes', insights: 'profile' }
@@ -58,19 +61,22 @@ type Props = {
   account: Account | null
   invites: number // friend requests + game invites waiting
   onFriends?: () => void
+  onLeagues?: () => void
   onPlayOnline?: (mode: Mode) => void
   onLeaveOnline?: (forGood: boolean) => void
   onRecordResult?: (winnerSeat: number) => void
   onSignOut?: () => void
 }
 
-export default function App({ account, invites, onFriends, onPlayOnline, onLeaveOnline, onRecordResult, onSignOut }: Props) {
+export default function App({ account, invites, onFriends, onLeagues, onPlayOnline, onLeaveOnline, onRecordResult, onSignOut }: Props) {
   const online = !!onLeaveOnline
   const store = useContext(StoreContext)
   const seat = useOnline()
   const [profile, setProfile] = useState<Profile | null>(loadProfile)
   // a match replay isn't saved, so a refresh during one goes back to its tactics screen
-  const [screen, setScreen] = usePersist<Screen>('screen', () => (loadProfile() ? 'modes' : 'login'))
+  // the game always opens on the mode slideshow; logging in comes when you choose something to play
+  const [screen, setScreen] = usePersist<Screen>('screen', 'modes')
+  const [wanted, setWanted] = useState<Mode | 'daily' | null>(null) // what they tried to play before logging in
   const [names, setNames] = usePersist<string[]>('names', [])
   const [cpu, setCpu] = usePersist<boolean[]>('cpu', [])
   const [gameId, setGameId] = usePersist('gameId', () => Date.now())
@@ -127,7 +133,7 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
     setScreen('match')
   }
   // signed in: skip the offline name screen
-  useEffect(() => { if (account && screen === 'login') setScreen('modes') }, [account, screen, setScreen])
+  useEffect(() => { if (account && screen === 'login') afterLogin() }, [account, screen]) // eslint-disable-line react-hooks/exhaustive-deps
   // online: the host records the champion once, for the friends leaderboard
   const champ = champion(n, fixtures)
   useEffect(() => {
@@ -135,6 +141,18 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
   }, [champ, onRecordResult, resultSaved, setResultSaved])
   const me = account?.username ?? profile?.name
   const level = levelOf(useProgress().xp)
+  const [touring, setTouring] = useState(false)
+  // legal pages open from anywhere (cookie banner, login, settings) and Back returns to where you were
+  const [legal, setLegal] = useState<{ tab: LegalTab; from: Screen } | null>(null)
+  // brand-new visitor, not logged in: Kicko's questions come first (like Duolingo, sign-up comes after)
+  const [welcoming, setWelcoming] = useState(() => !me && !welcomed())
+  useEffect(() => {
+    const open = (e: Event) => { setWelcoming(false); setLegal({ tab: (e as CustomEvent<LegalTab>).detail, from: screen === 'legal' ? 'modes' : screen }); setScreen('legal') }
+    addEventListener('fw-legal', open)
+    return () => removeEventListener('fw-legal', open)
+  }) // re-bound each render so it knows the current screen
+  // first time someone is logged in and back on the slideshow: show the tour once
+  useEffect(() => { if (me && screen === 'modes' && !onboarded()) setTouring(true) }, [me, screen])
 
   // XP and stats for this device's player. Offline, "you" are the seat with your name, or the only human.
   const mine = online ? seat.mySeat : (() => {
@@ -183,7 +201,15 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
     if (IN_GAME.includes(screen)) setResume(screen === 'match' ? 'tactics' : screen)
     setScreen('modes')
   }
-  const startMode = (m: Mode) => {
+  const afterLogin = () => {
+    const w = wanted
+    setWanted(null)
+    if (w === 'daily') setScreen('daily')
+    else if (w) startMode(w, true)
+    else setScreen('modes')
+  }
+  const startMode = (m: Mode, loggedIn = false) => {
+    if (!loggedIn && !account && !loadProfile()) { setWanted(m); setScreen('login'); return }
     if (resume && !confirm('Start a new game? The game in progress will be discarded.')) return
     discard('home')
     setMode(m)
@@ -201,11 +227,12 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
   const kicker = MODE_NAMES[mode]
 
   const views: Record<Screen, () => ReactNode> = {
-    login: () => <Login onDone={(p) => { setProfile(p); setScreen('modes') }} onAccount={() => setScreen('modes')} />,
-    modes: () => <Landing onPlay={startMode} onDaily={() => setScreen('daily')} resume={resume ? { mode, onResume: () => { setScreen(resume); setResume(null) } } : undefined} />,
+    login: () => <Login onDone={(p) => { setProfile(p); afterLogin() }} onAccount={afterLogin} onBack={() => { setWanted(null); setScreen('modes') }} />,
+    modes: () => <Landing onPlay={(m) => startMode(m)} onDaily={() => (me ? setScreen('daily') : (setWanted('daily'), setScreen('login')))} resume={resume ? { mode, onResume: () => { setScreen(resume); setResume(null) } } : undefined} />,
     daily: () => <Daily account={account} />,
-    profile: () => <ProfileScreen name={me ?? 'Manager'} onInsights={() => setScreen('insights')} />,
+    profile: () => <ProfileScreen name={me ?? 'Manager'} onInsights={() => setScreen('insights')} signedIn={!!account} onDeleted={() => location.replace('/')} />,
     insights: () => <Insights />,
+    legal: () => <Legal initial={legal?.tab} onBack={() => { const back = legal?.from ?? 'modes'; setLegal(null); setScreen(back); if (!me && back === 'modes' && !welcomed()) setWelcoming(true) }} />,
     home: () =>
       mode === 'xi' ? <Home onStart={() => setScreen('setup')} />
       : mode === 'sot' ? <SotHero onStart={() => setScreen('setup')} />
@@ -308,14 +335,14 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
 
   return (
     <div className="shell">
-      <header className="topbar">
+      {screen !== 'login' && <header className="topbar" inert={welcoming || touring || undefined}>
         <div className="row" style={{ gap: 14, flexWrap: 'nowrap' }}>
           {!online && BACK[screen] && (
             <button className="btn ghost sm" onClick={() => setScreen(BACK[screen]!)} aria-label="Back">
               <ArrowLeft weight="bold" /> Back
             </button>
           )}
-          <button className="wordmark" onClick={() => screen !== 'login' && goHome()}>
+          <button className="wordmark" onClick={goHome}>
             {APP_NAME.split(' ')[0]} <i>{APP_NAME.split(' ').slice(1).join(' ')}</i>
           </button>
           {!['login', 'modes'].includes(screen) && (
@@ -324,8 +351,17 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
             </button>
           )}
         </div>
+        {!me && screen === 'modes' && (
+          <div className="me">
+            {onLeagues && <button className="btn ghost sm" onClick={onLeagues}><Trophy weight="bold" /> Leagues</button>}
+            {onFriends && <button className="btn ghost sm" onClick={onFriends}><UsersThree weight="bold" /> Friends</button>}
+            <button className="btn sm" onClick={() => { openLoginOn('login'); setScreen('login') }}><SignIn weight="bold" /> Log in</button>
+            <button className="btn primary sm" onClick={() => { openLoginOn('create'); setScreen('login') }}>Create account</button>
+          </div>
+        )}
         {me && ['modes', 'home'].includes(screen) && (
           <div className="me">
+            {onLeagues && <button className="btn ghost sm" onClick={onLeagues}><Trophy weight="bold" /> Leagues</button>}
             {onFriends && (
               <button className="btn ghost sm" onClick={onFriends}>
                 <UsersThree weight="bold" /> Friends{invites > 0 && <span className="badge num">{invites}</span>}
@@ -336,20 +372,21 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
               <span className="avatar" aria-hidden>{me[0]?.toUpperCase()}</span>
               <span className="me-copy"><b>{account ? `@${me}` : me}</b><span>Level {level.level} · {level.title}</span></span>
             </button>
-            <button className="btn ghost sm" onClick={() => { saveProfile(null); setProfile(null); onSignOut?.(); discard('login') }} aria-label="Log out"><SignOut weight="bold" /></button>
+            <button className="btn ghost sm" onClick={() => { saveProfile(null); setProfile(null); onSignOut?.(); discard('modes') }} aria-label="Log out"><SignOut weight="bold" /></button>
           </div>
         )}
         {online && <span className="online-tag"><WifiHigh weight="bold" /> Online</span>}
-        {!['login', 'modes', 'home', 'daily', 'profile', 'insights'].includes(screen) && (
+        {!['login', 'modes', 'home', 'daily', 'profile', 'insights', 'legal'].includes(screen) && (
           <nav className="crumbs" aria-label="Progress">
             {steps.map(([label, ss], i) => (
               <span key={label} className={ss.includes(screen) ? 'on' : ''}>{i > 0 && '/ '}{label}</span>
             ))}
           </nav>
         )}
-      </header>
+      </header>}
       <AnimatePresence mode="wait">
         <motion.main
+          inert={welcoming || touring || undefined}
           key={screen === 'draft' || screen === 'handover' ? `${screen}-${pickNo}` : screen}
           initial={slide ? { opacity: 0, x: '55%' } : { opacity: 0, y: 24, filter: 'blur(6px)' }}
           animate={{ opacity: 1, x: 0, y: 0, filter: 'blur(0px)' }}
@@ -359,6 +396,10 @@ export default function App({ account, invites, onFriends, onPlayOnline, onLeave
           {views[screen]()}
         </motion.main>
       </AnimatePresence>
+      <AnimatePresence>{welcoming && <Welcome
+        onPlay={(m) => { setWelcoming(false); setWanted(m); openLoginOn('create'); setScreen('login') }}
+        onHaveAccount={() => { setWelcoming(false); openLoginOn('login'); setScreen('login') }} />}</AnimatePresence>
+      <AnimatePresence>{touring && <Onboarding name={me} onDone={() => setTouring(false)} />}</AnimatePresence>
     </div>
   )
 }

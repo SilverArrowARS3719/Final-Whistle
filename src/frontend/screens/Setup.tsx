@@ -6,16 +6,17 @@ const FORMATS: [number, string, string][] = [
   [2, 'Head to head', 'One match decides it.'],
   [3, 'Round robin', 'Everyone plays everyone once. Points, then goal difference.'],
   [4, 'Knockout', 'Semi-finals, then a final.'],
+  [8, 'Big knockout', 'Quarter-finals, semis, then a final.'],
 ]
 
-const CPU_NAMES = ['Robo Pep', 'Klopp-o-tron', 'Don Carlo 3000']
+const CPU_NAMES = ['Robo Pep', 'Klopp-o-tron', 'Don Carlo 3000', 'Mourinh-o-matic', 'Zizou Unit', 'Sir Alex AI', 'Cruyff Engine']
 
 type Props = { onStart: (names: string[], cpu: boolean[]) => void; me?: string; onOnline?: () => void; cpuAllowed?: boolean }
 
 export default function Setup({ onStart, me, onOnline, cpuAllowed = false }: Props) {
   const [count, setCount] = useState(2)
-  const [names, setNames] = useState([me && me !== 'Guest' ? me : '', '', '', ''])
-  const [cpu, setCpu] = useState([false, false, false, false])
+  const [names, setNames] = useState([me && me !== 'Guest' ? me : '', ...Array(7).fill('')])
+  const [cpu, setCpu] = useState(Array(8).fill(false) as boolean[])
   const isCpu = (i: number) => cpuAllowed && cpu[i]
   let bots = 0
   const used = names.slice(0, count).map((n, i) => (isCpu(i) ? CPU_NAMES[bots++] : n.trim() || `Player ${i + 1}`))

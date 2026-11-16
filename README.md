@@ -1,4 +1,4 @@
-# The Draft Room
+# The Final Whistle
 
 A football draft game: build an XI with friends (or against the computer), then the match decides who was right.
 

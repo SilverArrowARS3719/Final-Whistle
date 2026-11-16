@@ -12,14 +12,14 @@ import { setTrackedUser } from '../backend/track'
 import { onlineReady } from '../backend/supabase'
 import Friends from './screens/Friends'
 import Lobby from './screens/Lobby'
-import Login from './screens/Login'
+import Login, { openLoginOn } from './screens/Login'
 import Seasons from './screens/Seasons'
 import Reactions from './components/Reactions'
 
 const SAVED = 'fw-online-game' // the online game this device is part of, so a refresh rejoins it
 const saved = { get: () => { try { return localStorage.getItem(SAVED) } catch { return null } }, set: (id: string | null) => { try { if (id) localStorage.setItem(SAVED, id); else localStorage.removeItem(SAVED) } catch { /* not remembered */ } } }
 
-type View = 'app' | 'friends' | 'lobby' | 'seasons'
+type View = 'app' | 'friends' | 'lobby' | 'leagues'
 
 export default function Root() {
   const { session, account, setAccount, loading } = useAccount()
@@ -72,6 +72,12 @@ export default function Root() {
     try { open(await createGame(mode)) } catch (e) { setNotice((e as Error).message) }
   }
   const join = async (code: string) => open(await joinByCode(code))
+  // a league game: one online game, everyone in the league invited
+  const playLeague = async (memberIds: string[], mode: string) => {
+    const g = await createGame(mode)
+    await Promise.all(memberIds.map((id) => inviteToGame(g.id, account!.id, id, mode).catch(() => {})))
+    open(g)
+  }
   const challenge = async (friendId: string, mode: string) => {
     const g = await createGame(mode)
     await inviteToGame(g.id, account!.id, friendId, mode)
@@ -109,8 +115,20 @@ export default function Root() {
   if (onlineReady && session && !loading && !account)
     return (
       <div className="shell">
-        <header className="topbar"><span className="wordmark">{APP_NAME.split(' ')[0]} <i>{APP_NAME.split(' ').slice(1).join(' ')}</i></span></header>
         <Login onDone={() => {}} onAccount={setAccount} pickUsernameFor={session.user.id} />
+      </div>
+    )
+
+  if ((view === 'leagues' || view === 'friends') && !account)
+    return (
+      <div className="shell">
+        <header className="topbar">
+          <div className="row" style={{ gap: 14 }}>
+            <button className="btn ghost sm" onClick={() => setView('app')}><ArrowLeft weight="bold" /> Back</button>
+            <span className="wordmark">{APP_NAME.split(' ')[0]} <i>{APP_NAME.split(' ').slice(1).join(' ')}</i></span>
+          </div>
+        </header>
+        <NeedAccount what={view} onLogin={(m) => { openLoginOn(m); localStore.set('screen', 'login'); setView('app') }} />
       </div>
     )
 
@@ -119,12 +137,13 @@ export default function Root() {
       <div className="shell">
         <header className="topbar">
           <div className="row" style={{ gap: 14 }}>
-            {(view === 'friends' || view === 'seasons') && <button className="btn ghost sm" onClick={() => setView(view === 'seasons' ? 'friends' : 'app')}><ArrowLeft weight="bold" /> Back</button>}
+            {(view === 'friends' || view === 'leagues') && <button className="btn ghost sm" onClick={() => setView('app')}><ArrowLeft weight="bold" /> Back</button>}
+            {(view === 'friends' || view === 'leagues') && <nav className="social-tabs" aria-label="Social"><button className={view === 'leagues' ? 'on' : ''} onClick={() => setView('leagues')}>Leagues</button><button className={view === 'friends' ? 'on' : ''} onClick={() => setView('friends')}>Friends{social.invites.length + social.incoming.length > 0 && <span className="badge num">{social.invites.length + social.incoming.length}</span>}</button></nav>}
             <span className="wordmark">{APP_NAME.split(' ')[0]} <i>{APP_NAME.split(' ').slice(1).join(' ')}</i></span>
           </div>
         </header>
-        {view === 'friends' && <Friends me={account} social={social} onJoin={join} onChallenge={challenge} onRejoin={open} onSeasons={() => setView('seasons')} />}
-        {view === 'seasons' && <Seasons me={account} friends={social.friends} />}
+        {view === 'friends' && <Friends me={account} social={social} onJoin={join} onChallenge={challenge} onRejoin={open} onSeasons={() => setView('leagues')} />}
+        {view === 'leagues' && <Seasons me={account} friends={social.friends} onPlay={playLeague} />}
         {view === 'lobby' && lobby && (
           <Lobby
             game={lobby}
@@ -145,7 +164,8 @@ export default function Root() {
           key={online?.game.id ?? 'local'}
           account={account}
           invites={social.invites.length + social.incoming.length}
-          onFriends={account ? () => setView('friends') : undefined}
+          onFriends={() => setView('friends')}
+          onLeagues={() => setView('leagues')}
           onPlayOnline={account ? playOnline : undefined}
           onLeaveOnline={online ? leaveOnline : undefined}
           onRecordResult={online && info.isHost ? (seat) => recordResult(online.game, seat) : undefined}
@@ -160,5 +180,24 @@ export default function Root() {
         {online && account && <Reactions store={online.store} me={account.username} />}
       </OnlineContext.Provider>
     </StoreContext.Provider>
+  )
+}
+
+/** Leagues and friends live on the server, so they need an account. Say so instead of hiding the tab. */
+function NeedAccount({ what, onLogin }: { what: 'leagues' | 'friends'; onLogin: (mode: 'create' | 'login') => void }) {
+  return (
+    <div className="need-account panel pad stack">
+      <h2>{what === 'leagues' ? 'Leagues' : 'Friends'}</h2>
+      <p className="dim">
+        {what === 'leagues'
+          ? 'A league is your group of mates. Send the code and anyone can join. Play as many games as you like: each season lasts a year, and whoever wins the most is champion.'
+          : 'Find other players by username, add them as friends, and challenge them to any mode.'}
+      </p>
+      <p className="dim small">{onlineReady ? 'You need an account for this. New here? Create one in a few seconds. Already have one, maybe on another device? Log in.' : 'Online play is being set up. Once it is on, create an account or log in with Google, Microsoft, Apple or email.'}</p>
+      <div className="row">
+        <button className="btn primary lg" onClick={() => onLogin('create')}>Create account</button>
+        <button className="btn lg" onClick={() => onLogin('login')}>Log in</button>
+      </div>
+    </div>
   )
 }

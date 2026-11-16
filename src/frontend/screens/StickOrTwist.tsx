@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { usePersist } from '../../game/engine/persist'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { ArrowRight, ArrowsClockwise, HandPalm, Sparkle, Warning } from '@phosphor-icons/react'
+import { ArrowsClockwise, HandPalm, Warning } from '@phosphor-icons/react'
 import { PLAYERS, type Player, surname } from '../../game/data/players'
 import Pitch from '../components/Pitch'
 import PlayerCard from '../components/PlayerCard'
@@ -10,25 +10,22 @@ import { SOT } from '../../game/engine/config'
 import { drafterAt, slotsOf, type Team } from '../../game/engine/draft'
 import { makeRng } from '../../game/engine/rng'
 import { sfx } from '../../game/engine/sfx'
-import { POOL_AVG, deal, neededPerSlot, settle, teamCap, teamTotal, type Verdict } from '../../game/engine/stickOrTwist'
+import { POOL_AVG, deal, teamTotal } from '../../game/engine/stickOrTwist'
 import Handover from './Handover'
-import { HostOnly, Turn, useCanAct } from '../online'
+import { Turn, useCanAct } from '../online'
 
 type Props = { teams: Team[]; order: number[]; onDone: (teams: Team[], gone: Set<number>) => void }
-const ease = [0.16, 1, 0.3, 1] as const
 const rng = makeRng(Date.now())
 
 export default function StickOrTwist({ teams: start, order, onDone }: Props) {
   const reduce = useReducedMotion()
   const n = order.length
-  const cap = useMemo(() => teamCap(), [])
   const [teams, setTeams] = usePersist('sot:teams', start)
   const [pickNo, setPickNo] = usePersist('sot:pickNo', 0)
   const [twists, setTwists] = usePersist('sot:twists', start.map(() => SOT.twists))
   const [discards, setDiscards] = usePersist<Player[]>('sot:discards', [])
   const [passing, setPassing] = usePersist('sot:passing', true)
   const [dealt, setDealt] = usePersist<Player | null>('sot:dealt', null)
-  const [results, setResults] = usePersist<{ team: Team; verdict: Verdict }[] | null>('sot:results', null)
 
   const gone = new Set([...teams.flatMap((t) => t.picks.filter(Boolean).map((p) => p!.id)), ...discards.map((p) => p.id)])
   const pool = () => PLAYERS.filter((p) => !gone.has(p.id) && p.id !== dealt?.id)
@@ -49,7 +46,7 @@ export default function StickOrTwist({ teams: start, order, onDone }: Props) {
     const next = teams.map((t, i) => (i === ti ? { ...t, picks: t.picks.map((x, j) => (j === slot ? dealt : x)) } : t))
     setTeams(next)
     setDealt(null)
-    if (pickNo + 1 === n * 11) return finish(next)
+    if (pickNo + 1 === n * 11) return onDone(next, new Set([...gone, dealt.id]))
     setPickNo(pickNo + 1)
     setPassing(true)
   }
@@ -66,20 +63,8 @@ export default function StickOrTwist({ teams: start, order, onDone }: Props) {
     sfx.flip()
   }
 
-  const finish = (final: Team[]) => {
-    let available = PLAYERS.filter((p) => !gone.has(p.id) && !final.some((t) => t.picks.includes(p)))
-    const out = final.map((t) => {
-      const r = settle(t, available, cap, rng)
-      available = available.filter((p) => !r.used.includes(p))
-      return { team: r.team, verdict: r.verdict }
-    })
-    setResults(out)
-  }
-
   const [warn, setWarn] = useState<'two' | 'none' | null>(null)
   const left = useCountdown(SOT.decisionSeconds, () => canAct && stick(), `${pickNo}-${dealt?.id}-${passing}`, warn !== null)
-
-  if (results) return <Reveal results={results} cap={cap} onContinue={() => onDone(results.map((r) => r.team), new Set([...gone]))} />
 
   if (passing) {
     const prev = pickNo > 0 ? teams[drafterAt(pickNo - 1, order)] : null
@@ -102,11 +87,12 @@ export default function StickOrTwist({ teams: start, order, onDone }: Props) {
   }
 
   const total = teamTotal(team)
+  const filled = team.picks.filter(Boolean).length
+  const avg = filled ? total / filled : 0
   const slotsLeft = 11 - slot
-  const room = cap - total
-  const need = neededPerSlot(total, cap, slotsLeft)
-  const danger = need >= POOL_AVG + 1 ? 'safe' : need >= POOL_AVG - 1 ? 'tight' : 'danger'
-  const afterStick = total + (dealt?.ovr ?? 0)
+  // how this deal compares with a typical player: the whole decision in one line
+  const vsAvg = dealt ? dealt.ovr - POOL_AVG : 0
+  const read = !dealt ? '' : vsAvg >= 6 ? 'A star. Most twists would land you someone worse.' : vsAvg >= 1 ? 'Above average. Twisting is a gamble.' : vsAvg >= -3 ? 'About average. Worth a twist if you have them to spare.' : 'Below average. A twist will usually beat him.'
 
   return (
     <Turn seat={ti}>
@@ -114,7 +100,7 @@ export default function StickOrTwist({ teams: start, order, onDone }: Props) {
       <div className="panel draft-bar">
         <Ring left={left} total={SOT.decisionSeconds} />
         <div>
-          <div className="label">Round {slot + 1} of 11 · cap {cap}</div>
+          <div className="label">Round {slot + 1} of 11</div>
           <h2>{team.name}: your {slotPos}</h2>
         </div>
         <div className="order-strip">
@@ -153,16 +139,7 @@ export default function StickOrTwist({ teams: start, order, onDone }: Props) {
               </motion.div>
             )}
           </AnimatePresence>
-          <p className="dim small" style={{ textAlign: 'center' }}>
-            Stick and your total becomes <b className={`num ${afterStick > cap ? '' : 'accent'}`} style={afterStick > cap ? { color: 'var(--hot)' } : undefined}>{afterStick}</b> / {cap}
-          </p>
-          {(() => {
-            const needAfter = neededPerSlot(afterStick, cap, slotsLeft - 1)
-            const msg = afterStick > cap ? `Careful: sticking puts you ${afterStick - cap} over the cap right now.`
-              : slotsLeft > 1 && needAfter < POOL_AVG - 2 ? `Careful: after this you can only afford about ${needAfter.toFixed(0)} per remaining slot. Most deals are higher.`
-              : null
-            return msg && <p className="sot-warning" role="status"><Warning weight="fill" /> {msg}</p>
-          })()}
+          {dealt && <p className="sot-read" role="status"><b className="num">{dealt.ovr}</b> {read}</p>}
           <div className="sot-actions">
             <button className="btn primary lg" onClick={stick}><HandPalm weight="fill" /> Stick</button>
             <button className="btn glass lg" onClick={twist} disabled={twists[ti] === 0}>
@@ -182,21 +159,16 @@ export default function StickOrTwist({ teams: start, order, onDone }: Props) {
         <div className="stack">
           <div className="panel pad sot-info">
             <div className="sot-total">
-              <span className="display num">{total}</span>
-              <span className="dim">/ {cap}</span>
-            </div>
-            <div className={`meter ${danger}`} aria-label={`Bust risk: ${danger}`}>
-              <motion.span animate={{ width: `${Math.min(100, (total / cap) * 100)}%` }} transition={{ duration: 0.5, ease }} />
+              <span className="display num">{avg ? avg.toFixed(1) : '–'}</span>
+              <span className="dim">team average</span>
             </div>
             <div className="sot-grid">
-              <div><span className="label">Room left</span><b className="num">{room}</b></div>
+              <div><span className="label">Team total</span><b className="num">{total}</b></div>
               <div><span className="label">Slots left</span><b className="num">{slotsLeft}</b></div>
-              <div><span className="label">Avg needed</span><b className="num">{need.toFixed(1)}</b></div>
-              <div><span className="label">Twists</span><b className="num">{twists[ti]}</b></div>
+              <div><span className="label">Twists left</span><b className="num">{twists[ti]}</b></div>
+              <div><span className="label">Twists per slot</span><b className="num">{(twists[ti] / slotsLeft).toFixed(1)}</b></div>
             </div>
-            <p className={`small meter-label ${danger}`}>
-              {danger === 'safe' ? 'Comfortably under the cap.' : danger === 'tight' ? 'Getting tight. Average deals will leave you right on the cap.' : 'Bust likely. Twist for cheaper players or stick with low ones.'}
-            </p>
+            <p className="small dim">Spend twists where a bad deal hurts most. Once they're gone you keep whoever comes.</p>
           </div>
           <div className="panel pad">
             <Pitch team={team} active={slot} compact />
@@ -205,62 +177,5 @@ export default function StickOrTwist({ teams: start, order, onDone }: Props) {
       </div>
     </div>
     </Turn>
-  )
-}
-
-function Reveal({ results, cap, onContinue }: { results: { team: Team; verdict: Verdict }[]; cap: number; onContinue: () => void }) {
-  const [i, setI] = useState(0)
-  const r = results[i]
-  const last = i === results.length - 1
-
-  return (
-    <div className="sot-reveal">
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={i}
-          className={`panel verdict ${r.verdict.kind}`}
-          initial={{ opacity: 0, scale: 0.85, rotateX: 30 }}
-          animate={r.verdict.kind === 'bust' ? { opacity: 1, scale: 1, rotateX: 0, x: [0, -14, 12, -8, 6, 0] } : { opacity: 1, scale: 1, rotateX: 0 }}
-          exit={{ opacity: 0, y: -30 }}
-          transition={{ duration: 0.6, ease }}
-          onAnimationStart={() => (r.verdict.kind === 'bust' ? sfx.bust() : r.verdict.kind === 'perfect' ? sfx.perfect() : undefined)}
-          style={{ transformPerspective: 1200 }}
-        >
-          <span className="label">{r.team.name}</span>
-          <div className="verdict-total num">{r.verdict.total} <span className="dim">/ {cap}</span></div>
-          {r.verdict.kind === 'bust' && (
-            <>
-              <motion.h2 className="verdict-word" initial={{ scale: 3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.25, type: 'spring', stiffness: 200, damping: 12 }}>
-                <Warning weight="fill" /> Bust
-              </motion.h2>
-              <p className="dim">Over the cap by {r.verdict.total - cap}. Your best players get swapped for sub-75s until you're back under:</p>
-              <div className="swaps">
-                {r.verdict.swaps.map((s, k) => (
-                  <motion.div key={k} className="swap" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.6 + k * 0.15 }}>
-                    <span className="out">{s.out.name} <b className="num">{s.out.ovr}</b></span>
-                    <ArrowRight />
-                    <span>{s.in.name} <b className="num">{s.in.ovr}</b></span>
-                  </motion.div>
-                ))}
-              </div>
-            </>
-          )}
-          {r.verdict.kind === 'perfect' && (
-            <>
-              <motion.h2 className="verdict-word" initial={{ scale: 0.3, opacity: 0, rotate: -8 }} animate={{ scale: 1, opacity: 1, rotate: 0 }} transition={{ delay: 0.25, type: 'spring', stiffness: 180, damping: 10 }}>
-                <Sparkle weight="fill" /> Perfect XI
-              </motion.h2>
-              <p>Within 5 of the cap. Every player gets <b className="accent">+2 OVR</b> in the match.</p>
-            </>
-          )}
-          {r.verdict.kind === 'safe' && <h2 className="verdict-word">Under the cap</h2>}
-          {last ? (
-            <HostOnly><button className="btn primary lg" style={{ marginTop: 24 }} onClick={onContinue}>See the squads <ArrowRight weight="bold" /></button></HostOnly>
-          ) : (
-            <button className="btn primary lg" style={{ marginTop: 24 }} onClick={() => setI(i + 1)}>Next: {results[i + 1].team.name} <ArrowRight weight="bold" /></button>
-          )}
-        </motion.div>
-      </AnimatePresence>
-    </div>
   )
 }

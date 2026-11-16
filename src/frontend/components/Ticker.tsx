@@ -1,3 +1,4 @@
+import { SOT } from '../../game/engine/config'
 import { useMemo } from 'react'
 import { PLAYERS } from '../../game/data/players'
 import { WINNER_PLAYERS } from '../../game/data/winners'
@@ -7,7 +8,7 @@ import { ACHIEVEMENTS, levelOf, type Progress } from '../../game/engine/progress
 const TIPS = [
   'Players from the same club or country lift each other. Watch the lines on the pitch turn green.',
   'A player out of position loses rating. A natural 86 often beats a 91 on the wrong side.',
-  'In Stick or Twist, the cap decides everything. Count before you twist.',
+  `In Stick or Twist you only get ${SOT.twists} twists. Save them for the slots that matter.`,
   'Press hard and your players tire. Check the Fitness tab before extra time.',
   'Play the Daily at any time before midnight to keep your streak.',
 ]
