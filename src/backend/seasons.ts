@@ -1,11 +1,12 @@
 import { supabase } from './supabase'
+import { fail } from './errors'
 
 export type Season = { id: string; code: string; name: string; owner: string; starts_at: string; ends_at: string; members?: number }
 export type SeasonRow = { user_id: string; username: string; played: number; wins: number; points: number; streak: number; best_streak: number; form: string; week_points: number }
 
 const call = async <T,>(fn: string, args?: Record<string, unknown>): Promise<T> => {
   const { data, error } = await supabase!.rpc(fn, args)
-  if (error) throw new Error(error.message)
+  fail(error)
   return data as T
 }
 

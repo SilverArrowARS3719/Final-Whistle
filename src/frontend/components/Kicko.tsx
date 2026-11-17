@@ -19,7 +19,7 @@ export default function Kicko({ pose = 'wave', size = 160 }: { pose?: Pose; size
   const reduce = useReducedMotionConfig()
   return (
     <motion.div className="kicko" style={{ width: size, height: size * (314 / 348) }} animate={reduce ? (pose === 'hide' ? { opacity: 0.25 } : {}) : MOVES[pose]}>
-      <img src="/img/kicko.jpg" alt={pose === 'hide' ? 'Kicko, the panda referee, looking away' : 'Kicko, the panda referee mascot, holding a red card'} draggable={false} />
+      <img src="img/kicko.jpg" alt={pose === 'hide' ? 'Kicko, the panda referee, looking away' : 'Kicko, the panda referee mascot, holding a red card'} draggable={false} />
     </motion.div>
   )
 }

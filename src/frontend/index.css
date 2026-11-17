@@ -57,7 +57,7 @@ body::before {
     radial-gradient(1100px 600px at 80% -12%, rgb(var(--accent-rgb) / 0.10), transparent 60%),
     radial-gradient(900px 600px at -5% 110%, rgb(var(--glow-rgb) / 0.12), transparent 60%),
     linear-gradient(180deg, rgb(var(--ink-rgb) / 0.72), rgb(var(--ink-rgb) / 0.9) 55%, var(--ink)),
-    url('/img/ambient.jpg') center 30% / cover no-repeat,
+    url('img/ambient.jpg') center 30% / cover no-repeat,
     var(--ink);
 }
 ::selection { background: var(--accent); color: var(--accent-ink); }
@@ -1224,7 +1224,7 @@ body::before {
     radial-gradient(760px 460px at 8% -10%, rgb(243 199 75 / 0.09), transparent 62%),
     radial-gradient(900px 600px at -5% 110%, rgb(var(--glow-rgb) / 0.2), transparent 60%),
     linear-gradient(180deg, rgb(var(--ink-rgb) / 0.66), rgb(var(--ink-rgb) / 0.88) 55%, var(--ink)),
-    url('/img/ambient.jpg') center 30% / cover no-repeat,
+    url('img/ambient.jpg') center 30% / cover no-repeat,
     var(--ink);
 }
 html { scrollbar-color: rgb(var(--chalk-rgb) / 0.28) transparent; scrollbar-width: thin; caret-color: var(--accent); }
@@ -2029,3 +2029,11 @@ button, a, select, input, label { touch-action: manipulation; } /* no double-tap
 /* signed-out phones: logo · Log in · Menu. Help lives in the menu, and Create account is one tap away on the login card */
 @media (max-width: 520px) { .me.guest > .icon-btn, .me.guest > .tb-create { display: none; } }
 .skel-page { display: grid; gap: 18px; padding: 32px 0; }
+
+/* ---------- two-step login ---------- */
+.code-input { font-family: var(--mono); font-size: 1.5rem !important; letter-spacing: 0.4em; text-align: center; font-variant-numeric: tabular-nums; }
+.two-step .pf-head .accent { display: inline-flex; align-items: center; gap: 4px; }
+.two-step .code-input { max-width: 220px; padding: 10px 12px; }
+.two-step-qr { width: 168px; height: 168px; padding: 10px; border-radius: 12px; background: #fff; }
+.two-step-key { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.two-step-key code { min-width: 0; overflow-wrap: anywhere; font-size: 0.85rem; padding: 8px 10px; border-radius: 8px; background: rgb(255 255 255 / 0.06); border: 1px solid var(--line); user-select: all; }

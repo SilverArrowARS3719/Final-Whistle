@@ -183,6 +183,7 @@ export default function App({ account, invites, onFriends, onLeagues, onPlayOnli
   // a brand-new visitor sees the hero first; Kicko's questions open on their first Play (sign-up comes after).
   // "Replay the onboarding" opens them straight away.
   const [welcoming, setWelcoming] = useState(takeReplay)
+  const [replacing, setReplacing] = useState<Mode | null>(null) // a new mode picked while a game is in progress
   const [afterTour, setAfterTour] = useState<Mode | null>(null) // a replayed welcome's pick, played once the tour ends
   useEffect(() => {
     const open = (e: Event) => { setWelcoming(false); setLegal({ tab: (e as CustomEvent<LegalTab>).detail, from: screen === 'legal' ? 'modes' : screen }); setScreen('legal') }
@@ -246,12 +247,13 @@ export default function App({ account, invites, onFriends, onLeagues, onPlayOnli
     else if (w) startMode(w, true)
     else setScreen('modes')
   }
-  const startMode = (m: Mode, loggedIn = false) => {
+  // sure: they already said yes to dropping the game in progress (asked in the page, since browser pop-ups can be blocked)
+  const startMode = (m: Mode, loggedIn = false, sure = false) => {
     if (!loggedIn && !account && !loadProfile()) {
       if (!welcomed()) { setWelcoming(true); return } // first Play: Kicko's questions, then sign-up
       setWanted(m); setScreen('login'); return
     }
-    if (resume && !confirm('Start a new game? The game in progress will be discarded.')) return
+    if (resume && !sure) { setReplacing(m); return }
     discard('home')
     setMode(m)
     track('mode_start', { mode: m })
@@ -271,7 +273,7 @@ export default function App({ account, invites, onFriends, onLeagues, onPlayOnli
     login: () => <Login onDone={(p) => { setProfile(p); afterLogin() }} onAccount={afterLogin} onBack={() => { setWanted(null); setScreen('modes') }} />,
     modes: () => <Landing onPlay={(m) => startMode(m)} onDaily={() => (me ? setScreen('daily') : (setWanted('daily'), setScreen('login')))} resume={resume ? { mode, onResume: () => { setScreen(resume); setResume(null) } } : undefined} />,
     daily: () => <Daily account={account} />,
-    profile: () => <ProfileScreen name={me ?? 'Manager'} onInsights={() => setScreen('insights')} signedIn={!!account} onDeleted={() => location.replace('/')} />,
+    profile: () => <ProfileScreen name={me ?? 'Manager'} onInsights={() => setScreen('insights')} signedIn={!!account} onDeleted={() => location.reload()} />,
     insights: () => <Insights />,
     legal: () => <Legal initial={legal?.tab} onBack={() => { const back = legal?.from ?? 'modes'; setLegal(null); setScreen(back) }} />,
     home: () =>
@@ -449,6 +451,20 @@ export default function App({ account, invites, onFriends, onLeagues, onPlayOnli
         }}
         onHaveAccount={() => { setWelcoming(false); if (me) return setTouring(true); openLoginOn('login'); setScreen('login') }} />}</AnimatePresence>
       <Coach screen={screen === 'modedraft' ? `modedraft-${mode}` : screen} paused={welcoming || touring || screen === 'login'} onTour={() => setTouring(true)} />
+      <AnimatePresence>{replacing && (
+        <motion.div className="del-scrim" onClick={() => setReplacing(null)} onKeyDown={(e) => e.key === 'Escape' && setReplacing(null)}
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.div className="del" role="alertdialog" aria-modal="true" aria-labelledby="new-game-q" onClick={(e) => e.stopPropagation()}
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}>
+            <h3 id="new-game-q">Start a new game?</h3>
+            <p className="small dim">The game in progress will be discarded.</p>
+            <div className="row del-foot">
+              <button className="btn ghost" onClick={() => setReplacing(null)} autoFocus>Keep it</button>
+              <button className="btn primary" onClick={() => { const m = replacing; setReplacing(null); startMode(m, true, true) }}>Start new game</button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}</AnimatePresence>
       <AnimatePresence>{touring && <Onboarding name={me} onDone={() => { setTouring(false); if (afterTour) { const m = afterTour; setAfterTour(null); startMode(m) } }} />}</AnimatePresence>
     </div>
   )

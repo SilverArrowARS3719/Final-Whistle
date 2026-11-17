@@ -91,7 +91,7 @@ export default function Welcome({ onPlay, onHaveAccount, loggedIn = false, onClo
   const finish = () => { save(answers); sfx.whistle(); onPlay(rec.mode) }
   const haveAccount = () => { save(answers); onHaveAccount() }
 
-  const photo = step > n ? `/img/${rec.mode}.webp` : ['/img/xi.webp', '/img/winners.webp', '/img/sot.webp', '/img/chaos.webp', '/img/winners.webp'][step]
+  const photo = step > n ? `img/${rec.mode}.webp` : ['img/xi.webp', 'img/winners.webp', 'img/sot.webp', 'img/chaos.webp', 'img/winners.webp'][step]
   const pose: Pose = step === 0 ? 'wave' : ask ? ask.pose : 'card'
   const say = step === 0 ? "Hi, I'm Kicko." : ask ? ask.say : 'Your game is ready.'
   const sub = step === 0 ? "I'm the referee here. Four quick questions and I'll find the right game for you." : null
@@ -147,7 +147,7 @@ export default function Welcome({ onPlay, onHaveAccount, loggedIn = false, onClo
             )}
             {step > n && (
               <motion.div key="rec" className="rec-card" initial={reduce ? false : { opacity: 0, y: 30, scale: 0.94 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.55, ease, delay: 0.15 }}>
-                <img src={`/img/${rec.mode}.webp`} alt="" />
+                <img src={`img/${rec.mode}.webp`} alt="" />
                 <div>
                   <span className="label">Kicko recommends</span>
                   <b>{MODE_NAME[rec.mode]}</b>

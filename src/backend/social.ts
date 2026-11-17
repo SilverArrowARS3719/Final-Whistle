@@ -5,7 +5,7 @@ export type Person = { id: string; username: string }
 export type Friendship = { id: number; status: 'pending' | 'accepted'; requester: Person; addressee: Person }
 export type Invite = { id: number; game_id: string; mode: string | null; from: Person; created_at: string }
 
-const fail = (e: { message: string } | null) => { if (e) throw new Error(e.message) }
+import { fail } from './errors'
 
 export async function searchUsers(q: string, me: string): Promise<Person[]> {
   if (q.trim().length < 2) return []
@@ -14,7 +14,7 @@ export async function searchUsers(q: string, me: string): Promise<Person[]> {
 }
 export async function sendFriendRequest(me: string, to: string) {
   const { error } = await supabase!.from('friendships').insert({ requester: me, addressee: to })
-  if (error) throw new Error(error.code === '23505' ? 'You already have a request or friendship with them.' : error.message)
+  fail(error, 'You already have a request or friendship with them.')
 }
 export const acceptRequest = async (id: number) => fail((await supabase!.from('friendships').update({ status: 'accepted' }).eq('id', id)).error)
 export const removeFriendship = async (id: number) => fail((await supabase!.from('friendships').delete().eq('id', id)).error)

@@ -47,6 +47,39 @@ To see everyone's numbers in the app:
    ```sql
    update public.profiles set is_admin = true where username = 'YOUR_USERNAME';
    ```
-3. In the game, open your profile (click your name at the top), then **Game insights**.
+3. Turn on **Two-step login** on your profile page. The owner stats only open in a session that passed the 6-digit code.
+4. In the game, open your profile (click your name at the top), then **Game insights**.
 
 Insights shows: players and new players per day, how many came back the next day and a week later, average visit length, how many started vs finished each mode, and the screen people were on when they left without finishing.
+
+## Security settings (in the Supabase dashboard)
+The code and `schema.sql` handle most of it. These few switches only exist in the dashboard:
+
+- **Authentication → Sign In / Providers → Email**
+  - **Minimum password length**: 12.
+  - **Password requirements**: "Lowercase, uppercase letters, digits and symbols". The app already asks for this, but this is the check a script calling the server directly can't skip.
+  - **Confirm email**: on before publishing. With it off, signing up with an email that already has an account reveals that it does.
+- **Authentication → Rate Limits**: lower "Sign-ups and sign-ins" to about 10 per 5 minutes per IP, and "Token verifications" (the 6-digit codes) to about 10. The app also makes people wait after 5 wrong tries, but only the server limit stops a script.
+- **Authentication → Multi-Factor**: make sure **TOTP (App Authenticator)** is enabled. This is what Two-step login uses.
+- **Authentication → Attack Protection**: optional CAPTCHA (Cloudflare Turnstile is free) if bots ever start creating accounts.
+- Turn on two-step login for **your own** Supabase and GitHub accounts too: whoever gets into those gets everything.
+
+Someone lost their phone and can't do two-step login? In **SQL Editor**, with their username:
+```sql
+delete from auth.mfa_factors where user_id = (select id from public.profiles where username = 'THEIR_USERNAME');
+```
+Only do this once you're sure it's really them.
+
+## Looking at everyone's data (owner only)
+The app never shows one player another player's private data. You see it in the Supabase dashboard, which works with full rights and ignores the security rules:
+
+- **Table Editor**: every table, row by row (`profiles`, `friendships`, `games`, `results`, `daily_results`, `events`, …).
+- **Authentication → Users**: emails, sign-up dates, last sign-in, and who has two-step login on.
+- **SQL Editor**: any question, for example
+  ```sql
+  select p.username, u.email, u.created_at, u.last_sign_in_at
+  from public.profiles p join auth.users u on u.id = p.id order by u.created_at desc;
+  ```
+- **In the game**: **Profile → Game insights** shows everyone's usage numbers (see above).
+
+Keep the dashboard to yourself: never share the service_role key or the database password.

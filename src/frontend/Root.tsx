@@ -28,7 +28,7 @@ const saved = { get: () => { try { return localStorage.getItem(SAVED) } catch { 
 type View = 'app' | 'friends' | 'lobby' | 'leagues'
 
 export default function Root() {
-  const { session, account, setAccount, loading } = useAccount()
+  const { session, account, setAccount, needsCode, loading } = useAccount()
   const social = useSocial(account?.id ?? null)
   const [view, setView] = useState<View>('app')
   const [lobby, setLobby] = useState<GameRow | null>(null)
@@ -116,6 +116,14 @@ export default function Root() {
     : { online: false, mySeat: -1, isHost: true, names: [] }, [online, account])
 
   if (onlineReady && loading) return <BootSkeleton />
+
+  // right password, two-step login on: the code comes before anything else
+  if (onlineReady && session && needsCode)
+    return (
+      <div className="shell">
+        <Login onDone={() => {}} onAccount={() => {}} twoStep />
+      </div>
+    )
 
   // signed in but no username yet
   if (onlineReady && session && !loading && !account)

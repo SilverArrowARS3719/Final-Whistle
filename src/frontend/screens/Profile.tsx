@@ -9,6 +9,7 @@ import { openLegal } from './Legal'
 import { resetOnboarding } from '../components/Onboarding'
 import { resetTips } from '../components/Coach'
 import { openSettings } from '../components/QuickSettings'
+import TwoStep from '../components/TwoStep'
 import { ACHIEVEMENTS, levelOf, loadProgress, onProgress, paletteLevel, TITLES, type Progress } from '../../game/engine/progress'
 import { PALETTES } from '../theme/palettes'
 import { dayKey, loadDaily, streakOf } from '../../game/engine/daily'
@@ -45,7 +46,7 @@ export default function Profile({ name, onInsights, signedIn, onDeleted }: Props
     <div className="profile2">
       {/* the header is a matchday graphic: photo, shirt-number badge, name, then the numbers on one strip */}
       <header className="pf-hero">
-        <img className="pf-hero-photo" src="/img/winners.webp" alt="" />
+        <img className="pf-hero-photo" src="img/winners.webp" alt="" />
         <div className="pf-hero-shade" aria-hidden />
         <div className="pf-id">
           <motion.span className="pf-badge" aria-hidden initial={{ y: 16, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.5, ease }}>
@@ -96,7 +97,7 @@ export default function Profile({ name, onInsights, signedIn, onDeleted }: Props
                 const played = r?.played ?? 0, won = r?.won ?? 0
                 return (
                   <li key={m}>
-                    <img src={`/img/${m}.webp`} alt="" />
+                    <img src={`img/${m}.webp`} alt="" />
                     <span className="pf-mode-name"><b>{label}</b><span className="num">{played} played · {won} won</span></span>
                     <span className="pf-rate num" style={{ ['--w' as string]: `${pct(won, played)}%` }}>{played ? `${pct(won, played)}%` : '–'}</span>
                   </li>
@@ -115,6 +116,8 @@ export default function Profile({ name, onInsights, signedIn, onDeleted }: Props
               </button>
             </section>
           )}
+
+          {signedIn && <TwoStep />}
 
           <nav className="pf-links" aria-label="More">
             <button onClick={() => openSettings()}><GearSix weight="bold" /> Settings</button>

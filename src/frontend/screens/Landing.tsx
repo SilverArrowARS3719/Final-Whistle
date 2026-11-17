@@ -12,11 +12,11 @@ export type Mode = 'xi' | 'sot' | 'chaos' | 'auction' | 'winners'
 type Slide = { mode: Mode | null; n: number; title: string; line: string; img: string; glow: string }
 
 const SLIDES: Slide[] = [
-  { mode: 'xi', n: 1, title: 'All-Time XI', line: 'Draft your best XI of all time. If someone already took him, he is gone.', img: '/img/xi.webp', glow: 'var(--accent-rgb)' },
-  { mode: 'sot', n: 2, title: 'Stick or Twist', line: "You're dealt the players. Keep them or gamble a twist on someone better.", img: '/img/sot.webp', glow: '243 199 75' },
-  { mode: 'chaos', n: 3, title: 'Chaos Draft', line: 'A normal draft, until the cards start flipping.', img: '/img/chaos.webp', glow: '108 195 255' },
-  { mode: 'auction', n: 4, title: 'Auction', line: 'Open or blind bidding with a fixed budget. Build a 5 or 7-a-side team without going broke.', img: '/img/auction.webp', glow: '231 199 104' },
-  { mode: 'winners', n: 5, title: 'Team of Winners', line: 'Spin for a trophy, take a player from whoever holds it. Then try to win everything in three seasons.', img: '/img/winners.webp', glow: '255 170 80' },
+  { mode: 'xi', n: 1, title: 'All-Time XI', line: 'Draft your best XI of all time. If someone already took him, he is gone.', img: 'img/xi.webp', glow: 'var(--accent-rgb)' },
+  { mode: 'sot', n: 2, title: 'Stick or Twist', line: "You're dealt the players. Keep them or gamble a twist on someone better.", img: 'img/sot.webp', glow: '243 199 75' },
+  { mode: 'chaos', n: 3, title: 'Chaos Draft', line: 'A normal draft, until the cards start flipping.', img: 'img/chaos.webp', glow: '108 195 255' },
+  { mode: 'auction', n: 4, title: 'Auction', line: 'Open or blind bidding with a fixed budget. Build a 5 or 7-a-side team without going broke.', img: 'img/auction.webp', glow: '231 199 104' },
+  { mode: 'winners', n: 5, title: 'Team of Winners', line: 'Spin for a trophy, take a player from whoever holds it. Then try to win everything in three seasons.', img: 'img/winners.webp', glow: '255 170 80' },
 ]
 const AUTOPLAY_MS = 7000
 const SLIDE = {

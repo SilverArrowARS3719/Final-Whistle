@@ -16,24 +16,24 @@ const ease = [0.16, 1, 0.3, 1] as const
 const pop = (delay: number) => ({ initial: { opacity: 0, y: 24, scale: 0.85 }, animate: { opacity: 1, y: 0, scale: 1 }, transition: { type: 'spring' as const, stiffness: 260, damping: 18, delay } })
 
 const MODES = [
-  { name: 'All-Time XI', img: '/img/xi.webp' },
-  { name: 'Stick or Twist', img: '/img/sot.webp' },
-  { name: 'Chaos Draft', img: '/img/chaos.webp' },
-  { name: 'Auction', img: '/img/auction.webp' },
-  { name: 'Team of Winners', img: '/img/winners.webp' },
+  { name: 'All-Time XI', img: 'img/xi.webp' },
+  { name: 'Stick or Twist', img: 'img/sot.webp' },
+  { name: 'Chaos Draft', img: 'img/chaos.webp' },
+  { name: 'Auction', img: 'img/auction.webp' },
+  { name: 'Team of Winners', img: 'img/winners.webp' },
 ]
 
 // Each step: what Kicko says, his pose, the glow colour of the stage and the little scene beside him.
 type Step = { pose: Pose; glow: string; photo: string; title: string; say: ReactNode; scene: ReactNode }
 const STEPS = (name?: string): Step[] => [
   {
-    pose: 'card', glow: '210 239 91', photo: '/img/xi.webp',
+    pose: 'card', glow: '210 239 91', photo: 'img/xi.webp',
     title: name ? `Hi ${name}, I'm Kicko.` : "Hi, I'm Kicko.",
     say: <>Welcome to <b>{APP_NAME}</b>. You build a team, then the match decides who was right. Play on one device with friends, against the computer, or online.</>,
     scene: null,
   },
   {
-    pose: 'point', glow: '108 195 255', photo: '/img/chaos.webp',
+    pose: 'point', glow: '108 195 255', photo: 'img/chaos.webp',
     title: 'Five ways to play.',
     say: <>Swipe through them on the home page. Draft legends, gamble on deals, survive chaos cards, win an auction or spin for a trophy.</>,
     scene: (
@@ -49,7 +49,7 @@ const STEPS = (name?: string): Step[] => [
     ),
   },
   {
-    pose: 'think', glow: '243 199 75', photo: '/img/sot.webp',
+    pose: 'think', glow: '243 199 75', photo: 'img/sot.webp',
     title: 'One puzzle a day.',
     say: <>The <b>Daily Draft</b> is the same for everyone. Eleven picks, three matches, a score out of 9. Come back every day to keep your streak alive.</>,
     scene: (
@@ -63,7 +63,7 @@ const STEPS = (name?: string): Step[] => [
     ),
   },
   {
-    pose: 'cheer', glow: '255 170 80', photo: '/img/winners.webp',
+    pose: 'cheer', glow: '255 170 80', photo: 'img/winners.webp',
     title: 'Leagues with your mates.',
     say: <>A <b>league</b> is your group. Send the code and anyone can join. Each season lasts a year and <b>most wins</b> takes the title. Add <b>friends</b> to challenge them any time.</>,
     scene: (
@@ -78,7 +78,7 @@ const STEPS = (name?: string): Step[] => [
     ),
   },
   {
-    pose: 'whistle', glow: '210 239 91', photo: '/img/auction.webp',
+    pose: 'whistle', glow: '210 239 91', photo: 'img/auction.webp',
     title: 'Level up as you play.',
     say: <>Every game, win and Daily earns <b>XP</b>. Unlock achievements and new colour themes in Settings. Tap your name at the top to see your profile. Now, kick off!</>,
     scene: (

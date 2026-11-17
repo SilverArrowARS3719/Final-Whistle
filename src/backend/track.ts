@@ -2,6 +2,7 @@
 // Supabase `events` table when online is set up, and the last 2,000 also stay on this device so the
 // Insights page works offline too. Off until the player accepts it in the cookie banner; Settings can turn it off again.
 import { supabase } from './supabase'
+import { friendly } from './errors'
 import { consent, setConsent } from './consent'
 import { addDays, dayKey } from '../game/engine/daily'
 
@@ -144,7 +145,7 @@ export function summarise(events: Ev[], now = new Date().toISOString()): Summary
 export async function fetchAllEvents(days = 30): Promise<Ev[]> {
   if (!supabase) throw new Error('Online play is not set up, so there is only this device’s data.')
   const { data, error } = await supabase.rpc('admin_events', { p_days: days })
-  if (error) throw new Error(error.message.includes('not allowed') ? 'Only the owner account can see everyone’s data.' : error.message)
+  if (error) throw new Error(error.code === 'P0001' ? 'Only the owner account, signed in with two-step login, can see everyone’s data.' : friendly(error))
   return data as Ev[]
 }
 

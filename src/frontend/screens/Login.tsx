@@ -10,7 +10,8 @@ import { APP_NAME, LEGAL } from '../../game/engine/config'
 import { openLegal } from './Legal'
 import { passes } from '../../game/engine/password'
 import { sfx } from '../../game/engine/sfx'
-import { claimUsername, signIn, signInWith, signUp, type Account, type Provider } from '../../backend/auth'
+import { claimUsername, CODE_RULE, signIn, signInWith, signOut, signUp, twoStepFactor, verifyCode, type Account, type Provider } from '../../backend/auth'
+import { clearMisses, lockedFor, recordMiss, waitWords } from '../../backend/attempts'
 import { onlineReady } from '../../backend/supabase'
 
 export type Profile = { name: string; email?: string; birthYear?: number }
@@ -52,6 +53,7 @@ type Props = {
   pickUsernameFor?: string // signed-in account id that still needs a username
   onAccount: (a: Account) => void
   onBack?: () => void // back to the mode slideshow
+  twoStep?: boolean // password was right; the 6-digit code from their authenticator app comes next
 }
 
 const GoogleMark = () => (
@@ -76,18 +78,20 @@ const fly = {
 }
 const rise = { hidden: { opacity: 0, y: 18, filter: 'blur(6px)' }, shown: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.5, ease } } }
 
-export default function Login({ onDone, pickUsernameFor, onAccount, onBack }: Props) {
+export default function Login({ onDone, pickUsernameFor, onAccount, onBack, twoStep }: Props) {
   const reduce = useReducedMotionConfig()
   const thisYear = new Date().getFullYear()
   const saved = loadProfile()
   // dev only: ?auth=login previews signing in to an existing account
   const preview = import.meta.env.DEV ? new URLSearchParams(location.search).get('auth') : null
-  const [mode, setMode] = useState<Mode>(() => takeOpenOn() ?? (preview === 'login' ? 'login' : 'create'))
-  const [step, setStep] = useState<Step>('details')
+  // without the server (online play not set up), playing on this device is the only way in, so start there
+  const [mode, setMode] = useState<Mode>(() => (onlineReady ? takeOpenOn() ?? (preview === 'login' ? 'login' : 'create') : 'offline'))
+  const [step, setStep] = useState<Step>(onlineReady ? 'details' : 'age')
   const [via, setVia] = useState<Provider | null>(null) // a social button sent us to the age step
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [code, setCode] = useState('')
   const [birthYear, setBirthYear] = useState(saved?.birthYear ?? thisYear - 16)
   const [error, setError] = useState('')
   const [note, setNote] = useState('')
@@ -105,6 +109,14 @@ export default function Login({ onDone, pickUsernameFor, onAccount, onBack }: Pr
     setError('')
     try { await fn() } catch (e) { setError((e as Error).message) } finally { setBusy(false) }
   }
+  // password and code checks: a few misses, then a wait before the next try
+  const guarded = (fn: () => Promise<void>) => {
+    const wait = lockedFor()
+    if (wait) return setError(`Too many tries. Try again in ${waitWords(wait)}.`)
+    return run(async () => {
+      try { await fn(); clearMisses() } catch (e) { recordMiss(); throw e }
+    })
+  }
   const switchTo = (m: Mode) => { setMode(m); setStep(m === 'offline' ? 'age' : 'details'); setVia(null); setError(''); setNote(''); setRevealed(false) }
   const tooYoung = () => thisYear - birthYear < MIN_ONLINE_AGE
 
@@ -118,6 +130,14 @@ export default function Login({ onDone, pickUsernameFor, onAccount, onBack }: Pr
     e.preventDefault()
     sfx.kick()
     if (pickUsernameFor) return run(async () => onAccount(await claimUsername(pickUsernameFor, name.trim())))
+    if (twoStep) {
+      if (!CODE_RULE.test(code)) return setError('Enter the 6-digit code from your authenticator app.')
+      return guarded(async () => {
+        const factor = await twoStepFactor()
+        if (!factor) throw new Error('Something went wrong. Sign out and log in again.')
+        await verifyCode(factor, code)
+      })
+    }
 
     if (mode === 'offline') {
       if (!name.trim()) return setError('Enter a name so your friends know who built that XI.')
@@ -130,7 +150,7 @@ export default function Login({ onDone, pickUsernameFor, onAccount, onBack }: Pr
       if (!/^\S+@\S+\.\S+$/.test(email.trim())) return setError("That email doesn't look right.")
       if (mode === 'login') {
         if (!password) return setError('Enter your password.')
-        return run(() => signIn(email.trim(), password))
+        return guarded(() => signIn(email.trim(), password))
       }
       if (!passes(password, email)) return setError('Your password needs to tick every rule. Or tap "Suggest a strong one".')
       setStep('age'); setRevealed(false); setError('')
@@ -147,7 +167,8 @@ export default function Login({ onDone, pickUsernameFor, onAccount, onBack }: Pr
     })
   }
 
-  const cta = pickUsernameFor ? 'Claim username'
+  const cta = twoStep ? 'Verify'
+    : pickUsernameFor ? 'Claim username'
     : mode === 'offline' ? "Let's play"
     : step === 'age' ? 'Create account'
     : mode === 'login' ? 'Log in' : 'Continue'
@@ -156,7 +177,7 @@ export default function Login({ onDone, pickUsernameFor, onAccount, onBack }: Pr
 
   return (
     <div className={`login ${revealed ? 'private' : ''}`}>
-      <Backdrop src="/img/xi.webp" zoomSeconds={14} />
+      <Backdrop src="img/xi.webp" zoomSeconds={14} />
       {/* privacy glass: frosts the stadium while the password is on show */}
       <AnimatePresence>
         {revealed && <motion.div className="privacy-glass" aria-hidden initial={{ opacity: 0, clipPath: 'inset(0 100% 0 0)' }} animate={{ opacity: 1, clipPath: 'inset(0 0% 0 0)' }} exit={{ opacity: 0, clipPath: 'inset(0 0 0 100%)' }} transition={{ duration: 0.55, ease }} />}
@@ -176,12 +197,17 @@ export default function Login({ onDone, pickUsernameFor, onAccount, onBack }: Pr
           <Kicko pose={pose} size={104} />
         </motion.div>
 
-        <motion.h1 variants={rise} className="login-title">{pickUsernameFor ? 'Pick a username' : APP_NAME}</motion.h1>
+        <motion.h1 variants={rise} className="login-title">{twoStep ? 'Two-step login' : pickUsernameFor ? 'Pick a username' : APP_NAME}</motion.h1>
 
         <AnimatePresence mode="popLayout" initial={false}>
-          <motion.div key={pickUsernameFor ? 'u' : `${mode}-${step}`} className="login-fields"
+          <motion.div key={twoStep ? 'code' : pickUsernameFor ? 'u' : `${mode}-${step}`} className="login-fields"
             initial={{ opacity: 0, x: 40, filter: 'blur(8px)' }} animate={{ opacity: 1, x: 0, filter: 'blur(0px)', transition: { duration: 0.45, ease } }} exit={{ opacity: 0, x: -40, filter: 'blur(8px)', transition: { duration: 0.2 } }}>
-            {pickUsernameFor ? (
+            {twoStep ? (
+              <>
+                <p className="login-lead">Open your authenticator app and enter the <span style={{ whiteSpace: 'nowrap' }}>6-digit</span> code for {APP_NAME}.</p>
+                {field('Code', <input value={code} onChange={(e) => { setCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setError('') }} onFocus={() => setFocus('text')} onBlur={() => setFocus(null)} inputMode="numeric" autoComplete="one-time-code" placeholder="123456" autoFocus className="code-input" />)}
+              </>
+            ) : pickUsernameFor ? (
               field('Username', <input value={name} onChange={(e) => { setName(e.target.value); setError('') }} onFocus={() => setFocus('text')} onBlur={() => setFocus(null)} maxLength={18} placeholder="Username, e.g. ravi_10" autoFocus autoComplete="username" />)
             ) : step === 'details' ? (
               <>
@@ -221,7 +247,7 @@ export default function Login({ onDone, pickUsernameFor, onAccount, onBack }: Pr
           {cta}<ArrowRight weight="bold" />
         </motion.button>
 
-        {!pickUsernameFor && step === 'details' && (
+        {!pickUsernameFor && !twoStep && step === 'details' && (
           <motion.div variants={rise} className="login-social">
             <div className="divider"><span>or log in with</span></div>
             <div className="social-row">
@@ -231,7 +257,12 @@ export default function Login({ onDone, pickUsernameFor, onAccount, onBack }: Pr
           </motion.div>
         )}
 
-        {!pickUsernameFor && (
+        {twoStep && (
+          <motion.p variants={rise} className="login-alt small">
+            Lost your phone? <button type="button" className="linkish" onClick={() => signOut()}>Sign out</button> and contact us to get back in.
+          </motion.p>
+        )}
+        {!pickUsernameFor && !twoStep && (
           <motion.p variants={rise} className="login-alt small">
             {/* offline is only offered when an account isn't possible: sign-in switched off, or too young for one */}
             {[
@@ -239,7 +270,7 @@ export default function Login({ onDone, pickUsernameFor, onAccount, onBack }: Pr
               mode === 'create' && step === 'details' && <>Have an account? <button type="button" className="linkish" onClick={() => switchTo('login')}>Log in</button></>,
               mode === 'login' && <>New here? <button type="button" className="linkish" onClick={() => switchTo('create')}>Create an account</button></>,
               mode === 'offline'
-                ? <button type="button" className="linkish" onClick={() => switchTo('create')}>Use an account instead</button>
+                ? onlineReady && <button type="button" className="linkish" onClick={() => switchTo('create')}>Use an account instead</button>
                 : (!onlineReady || young) && <button type="button" className="linkish" onClick={() => switchTo('offline')}>Play offline</button>,
             ].filter(Boolean).map((part, k) => <Fragment key={k}>{k > 0 && ' · '}{part}</Fragment>)}
             <br /><span className="login-legal"><button type="button" className="linkish" onClick={() => openLegal('Privacy')}>Privacy</button> · <button type="button" className="linkish" onClick={() => openLegal('Terms')}>Terms</button> · <button type="button" className="linkish" onClick={() => openLegal('Cookies')}>Cookies</button></span>

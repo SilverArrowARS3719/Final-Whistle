@@ -6,7 +6,7 @@ export type Seat = { id: string; username: string }
 export type Reaction = { emoji: string; from: string; id: number }
 export type GameRow = { id: string; code: string; host: string; mode: string; status: 'lobby' | 'playing' | 'finished'; players: Seat[]; state: Record<string, unknown> }
 
-const fail = (e: { message: string } | null) => { if (e) throw new Error(e.message) }
+import { fail } from './errors'
 
 export async function createGame(mode: string): Promise<GameRow> {
   const { data, error } = await supabase!.rpc('create_game', { p_mode: mode })
@@ -27,7 +27,7 @@ export async function fetchGame(id: string): Promise<GameRow | null> {
 }
 export async function inviteToGame(gameId: string, from: string, to: string, mode?: string) {
   const { error } = await supabase!.from('game_invites').insert({ game_id: gameId, from_user: from, to_user: to, mode })
-  if (error && error.code !== '23505') throw new Error(error.message) // already invited is fine
+  if (error?.code !== '23505') fail(error) // already invited is fine
 }
 export async function recordResult(game: GameRow, winnerSeat: number) {
   await supabase!.from('results').insert({ game_id: game.id, mode: game.mode, winner: game.players[winnerSeat]?.id ?? null, players: game.players.map((p) => p.id) })
@@ -132,7 +132,7 @@ export class OnlineStore implements Store {
     this.queue = []
     this.channel.send({ type: 'broadcast', event: 'ops', payload: { ops } })
     supabase!.rpc('patch_game', { p_game: this.gameId, p_ops: ops }).then(({ error }) => {
-      if (error) console.warn('Could not save move:', error.message)
+      if (error && import.meta.env.DEV) console.warn('Could not save move:', error)
     })
   }
 
