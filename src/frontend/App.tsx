@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { SMALL_SIDED } from '../game/data/formations'
 import { AnimatePresence, motion } from 'motion/react'
 import { PLAYERS, type Player } from '../game/data/players'
@@ -12,10 +12,7 @@ import Coach from './components/Coach'
 import { LogoMark } from './components/Logo'
 import Onboarding, { onboarded, takeReplay } from './components/Onboarding'
 import Welcome, { welcomed } from './components/Welcome'
-import CpuTurn from './components/CpuTurn'
-import Daily from './screens/Daily'
 import ProfileScreen, { useProgress } from './screens/Profile'
-import Insights from './screens/Insights'
 import Legal, { type LegalTab } from './screens/Legal'
 import { effectiveOvr } from '../game/engine/position'
 import { makeRng } from '../game/engine/rng'
@@ -27,30 +24,66 @@ import Login, { loadProfile, openLoginOn, saveProfile, type Profile } from './sc
 import { SignIn, WifiHigh } from '@phosphor-icons/react'
 import type { Account } from '../backend/auth'
 import { HostOnly, useOnline } from './online'
-import StickOrTwist from './screens/StickOrTwist'
-import ChaosDraft from './screens/ChaosDraft'
-import ChaosSettingsPanel from './components/ChaosSettings'
-import Auction from './screens/Auction'
 import type { AuctionKind } from '../game/engine/auction'
-import SizePick from './screens/SizePick'
 import { DEFAULT_CHAOS_SETTINGS, type ChaosSettings } from '../game/engine/chaos'
-import Home from './screens/Home'
-import { SotHero, ChaosHero, AuctionHero, WinnersHero } from './screens/ModeHeroes'
-import WinnersDraft from './screens/WinnersDraft'
-import Career from './screens/Career'
 import { DEFAULT_SHAPE } from '../game/engine/winners'
 import { ArrowLeft, House } from '@phosphor-icons/react'
 import { StoreContext, usePersist } from '../game/engine/persist'
+import { PageSkeleton } from './components/Skeleton'
+
+// Every screen past the hero loads on demand, so a first visit only downloads the hero. Once the hero is
+// up and the browser is idle, the rest is fetched in the background, so moving on still feels instant.
+const SCREENS = {
+  home: () => import('./screens/Home'),
+  heroes: () => import('./screens/ModeHeroes'),
+  setup: () => import('./screens/Setup'),
+  spinner: () => import('./screens/Spinner'),
+  formation: () => import('./screens/FormationPick'),
+  draft: () => import('./screens/Draft'),
+  cpu: () => import('./components/CpuTurn'),
+  handover: () => import('./screens/Handover'),
+  done: () => import('./screens/DraftDone'),
+  tactics: () => import('./screens/Tactics'),
+  match: () => import('./screens/Match'),
+  tournament: () => import('./screens/Tournament'),
+  sot: () => import('./screens/StickOrTwist'),
+  chaos: () => import('./screens/ChaosDraft'),
+  chaosSettings: () => import('./components/ChaosSettings'),
+  auction: () => import('./screens/Auction'),
+  size: () => import('./screens/SizePick'),
+  winners: () => import('./screens/WinnersDraft'),
+  career: () => import('./screens/Career'),
+  daily: () => import('./screens/Daily'),
+  insights: () => import('./screens/Insights'),
+}
+const Home = lazy(SCREENS.home)
+const SotHero = lazy(() => SCREENS.heroes().then((m) => ({ default: m.SotHero })))
+const ChaosHero = lazy(() => SCREENS.heroes().then((m) => ({ default: m.ChaosHero })))
+const AuctionHero = lazy(() => SCREENS.heroes().then((m) => ({ default: m.AuctionHero })))
+const WinnersHero = lazy(() => SCREENS.heroes().then((m) => ({ default: m.WinnersHero })))
+const Setup = lazy(SCREENS.setup)
+const Spinner = lazy(SCREENS.spinner)
+const FormationPick = lazy(SCREENS.formation)
+const Draft = lazy(SCREENS.draft)
+const CpuTurn = lazy(SCREENS.cpu)
+const Handover = lazy(SCREENS.handover)
+const DraftDone = lazy(SCREENS.done)
+const TacticsScreen = lazy(SCREENS.tactics)
+const Match = lazy(SCREENS.match)
+const Tournament = lazy(SCREENS.tournament)
+const StickOrTwist = lazy(SCREENS.sot)
+const ChaosDraft = lazy(SCREENS.chaos)
+const ChaosSettingsPanel = lazy(SCREENS.chaosSettings)
+const Auction = lazy(SCREENS.auction)
+const SizePick = lazy(SCREENS.size)
+const WinnersDraft = lazy(SCREENS.winners)
+const Career = lazy(SCREENS.career)
+const Daily = lazy(SCREENS.daily)
+const Insights = lazy(SCREENS.insights)
+// fetch the rest once the first screen is up; Safari has no requestIdleCallback, so a timer stands in
+const idle = (fn: () => void) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 4000 }) : setTimeout(fn, 2500))
+idle(() => Object.values(SCREENS).forEach((load) => load().catch(() => { /* offline: loads when opened */ })))
 import { APP_NAME } from '../game/engine/config'
-import Setup from './screens/Setup'
-import Spinner from './screens/Spinner'
-import FormationPick from './screens/FormationPick'
-import Draft from './screens/Draft'
-import Handover from './screens/Handover'
-import DraftDone from './screens/DraftDone'
-import TacticsScreen from './screens/Tactics'
-import Match from './screens/Match'
-import Tournament from './screens/Tournament'
 
 const MODE_NAMES: Record<Mode, string> = { xi: 'All-Time XI', sot: 'Stick or Twist', chaos: 'Chaos Draft', auction: 'Auction', winners: 'Team of Winners' }
 
@@ -403,7 +436,7 @@ export default function App({ account, invites, onFriends, onLeagues, onPlayOnli
           exit={{ opacity: 0, transform: slide ? 'translateX(-30%)' : 'translateY(-8px)', transition: { duration: 0.16, ease: 'easeIn' } }}
           transition={{ duration: slide ? 0.4 : 0.28, ease: [0.16, 1, 0.3, 1] }}
         >
-          {views[screen]()}
+          <Suspense fallback={<PageSkeleton />}>{views[screen]()}</Suspense>
         </motion.main>
       </AnimatePresence>
       <AnimatePresence>{welcoming && <Welcome

@@ -2028,3 +2028,4 @@ button, a, select, input, label { touch-action: manipulation; } /* no double-tap
 .logo-badge .logo-mark { height: 60%; }
 /* signed-out phones: logo · Log in · Menu. Help lives in the menu, and Create account is one tap away on the login card */
 @media (max-width: 520px) { .me.guest > .icon-btn, .me.guest > .tb-create { display: none; } }
+.skel-page { display: grid; gap: 18px; padding: 32px 0; }

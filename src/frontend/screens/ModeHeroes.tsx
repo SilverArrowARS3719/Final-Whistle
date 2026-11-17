@@ -79,7 +79,7 @@ export function SotHero({ onStart }: { onStart: () => void }) {
   ]
   return (
     <div className="mh sot">
-      <Backdrop src="/img/sot.jpg" />
+      <Backdrop src="/img/sot.webp" />
       <Hero title="Stick. Twist." accent="Hold your nerve." lede={`You don't pick players, you're dealt them. Keep the one you get, or gamble one of ${SOT.twists} twists on a random replacement. He might be worse.`} cta="Deal me in" onStart={onStart}>
         <div className="dealer">
           <div className="deck" aria-hidden>{[0, 1, 2].map((k) => <span key={k} style={{ translate: `${k * 5}px ${-k * 5}px` }} />)}</div>
@@ -145,7 +145,7 @@ export function ChaosHero({ onStart }: { onStart: () => void }) {
   const odds = Object.entries(CHAOS.weights) as [string, number][]
   return (
     <div className="mh chaos">
-      <Backdrop src="/img/chaos.jpg" />
+      <Backdrop src="/img/chaos.webp" />
       <Hero title="Every round," accent="new rules." lede="Every round, each player is dealt their own Chaos Card. You might get Brazilians only while your mate gets World Champions only. Pure luck of the draw." cta="Flip the first card" onStart={onStart}>
         <div className="fan-cards">
           <AnimatePresence mode="popLayout">
@@ -222,7 +222,7 @@ export function AuctionHero({ onStart }: { onStart: () => void }) {
   ]
   return (
     <div className="mh auction">
-      <Backdrop src="/img/auction.jpg" />
+      <Backdrop src="/img/auction.webp" />
       <Hero title="Every player" accent="has a price." lede="Open bidding, a fixed budget, 5 or 7 a side. Any player can come up next, or play it blind and only find out who you bought after you win him." cta="Open the auction" onStart={onStart}>
         <div className="lot-stage">
           <AnimatePresence mode="popLayout">
@@ -292,7 +292,7 @@ export function WinnersHero({ onStart }: { onStart: () => void }) {
   ]
   return (
     <div className="mh winners">
-      <Backdrop src="/img/winners.jpg" />
+      <Backdrop src="/img/winners.webp" />
       <Hero title="Only winners" accent="get picked." lede="Every player comes from a club or country holding a trophy right now. Build 20 men from the spin of a wheel, then take them through three Premier League seasons and try to win all six." cta="Start drafting" onStart={onStart}>
         <div className="win-stage">
           <AnimatePresence mode="popLayout">

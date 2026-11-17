@@ -156,7 +156,7 @@ export default function Login({ onDone, pickUsernameFor, onAccount, onBack }: Pr
 
   return (
     <div className={`login ${revealed ? 'private' : ''}`}>
-      <Backdrop src="/img/xi.jpg" zoomSeconds={14} />
+      <Backdrop src="/img/xi.webp" zoomSeconds={14} />
       {/* privacy glass: frosts the stadium while the password is on show */}
       <AnimatePresence>
         {revealed && <motion.div className="privacy-glass" aria-hidden initial={{ opacity: 0, clipPath: 'inset(0 100% 0 0)' }} animate={{ opacity: 1, clipPath: 'inset(0 0% 0 0)' }} exit={{ opacity: 0, clipPath: 'inset(0 0 0 100%)' }} transition={{ duration: 0.55, ease }} />}

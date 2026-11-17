@@ -54,3 +54,14 @@ export function BootSkeleton() {
     </div>
   )
 }
+
+/** A screen on its way: its heading and a few rows, while the screen's code arrives. */
+export function PageSkeleton() {
+  return (
+    <div className="skel-page">
+      <Bone w="min(440px, 72%)" h="clamp(40px, 5vw, 64px)" r={8} />
+      <Bone w="min(320px, 52%)" h={14} />
+      <SkeletonRows rows={4} label="Loading this screen" />
+    </div>
+  )
+}

@@ -12,11 +12,11 @@ export type Mode = 'xi' | 'sot' | 'chaos' | 'auction' | 'winners'
 type Slide = { mode: Mode | null; n: number; title: string; line: string; img: string; glow: string }
 
 const SLIDES: Slide[] = [
-  { mode: 'xi', n: 1, title: 'All-Time XI', line: 'Draft your best XI of all time. If someone already took him, he is gone.', img: '/img/xi.jpg', glow: 'var(--accent-rgb)' },
-  { mode: 'sot', n: 2, title: 'Stick or Twist', line: "You're dealt the players. Keep them or gamble a twist on someone better.", img: '/img/sot.jpg', glow: '243 199 75' },
-  { mode: 'chaos', n: 3, title: 'Chaos Draft', line: 'A normal draft, until the cards start flipping.', img: '/img/chaos.jpg', glow: '108 195 255' },
-  { mode: 'auction', n: 4, title: 'Auction', line: 'Open or blind bidding with a fixed budget. Build a 5 or 7-a-side team without going broke.', img: '/img/auction.jpg', glow: '231 199 104' },
-  { mode: 'winners', n: 5, title: 'Team of Winners', line: 'Spin for a trophy, take a player from whoever holds it. Then try to win everything in three seasons.', img: '/img/winners.jpg', glow: '255 170 80' },
+  { mode: 'xi', n: 1, title: 'All-Time XI', line: 'Draft your best XI of all time. If someone already took him, he is gone.', img: '/img/xi.webp', glow: 'var(--accent-rgb)' },
+  { mode: 'sot', n: 2, title: 'Stick or Twist', line: "You're dealt the players. Keep them or gamble a twist on someone better.", img: '/img/sot.webp', glow: '243 199 75' },
+  { mode: 'chaos', n: 3, title: 'Chaos Draft', line: 'A normal draft, until the cards start flipping.', img: '/img/chaos.webp', glow: '108 195 255' },
+  { mode: 'auction', n: 4, title: 'Auction', line: 'Open or blind bidding with a fixed budget. Build a 5 or 7-a-side team without going broke.', img: '/img/auction.webp', glow: '231 199 104' },
+  { mode: 'winners', n: 5, title: 'Team of Winners', line: 'Spin for a trophy, take a player from whoever holds it. Then try to win everything in three seasons.', img: '/img/winners.webp', glow: '255 170 80' },
 ]
 const AUTOPLAY_MS = 7000
 const SLIDE = {
@@ -56,8 +56,6 @@ export default function Landing({ onPlay, onDaily, resume }: { onPlay: (m: Mode)
     return () => clearTimeout(id)
   }, [i, reduce, dragging])
 
-  // preload every backdrop so slides never flash
-  useEffect(() => SLIDES.forEach((x) => { new Image().src = x.img }), [])
 
   // the first card is the mode on the left; the next two follow
   const shown = [0, 1, 2].map((k) => (i + k) % SLIDES.length)
@@ -105,7 +103,8 @@ export default function Landing({ onPlay, onDaily, resume }: { onPlay: (m: Mode)
       {createPortal(
         <div className={`backdrop ${still ? 'still' : ''}`} aria-hidden>
           {/* CSS transitions, not JS: the slow zoom runs on the GPU and never waits for React */}
-          {SLIDES.map((x, k) => <img key={x.n} src={x.img} alt="" decoding="async" draggable={false} className={`bd-slide ${k === i ? 'on' : ''}`} />)}
+          {/* all five stay mounted so a slide never flashes; the one on screen downloads first */}
+          {SLIDES.map((x, k) => <img key={x.n} src={x.img} alt="" decoding="async" draggable={false} fetchPriority={k === i ? 'high' : 'low'} className={`bd-slide ${k === i ? 'on' : ''}`} />)}
           <div className="backdrop-shade" />
           {/* each mode washes the stadium in its own colour */}
           <AnimatePresence initial={false}>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, WifiHigh } from '@phosphor-icons/react'
 import App from './App'
 import { APP_NAME } from '../game/engine/config'
@@ -10,15 +10,17 @@ import { createGame, fetchGame, inviteToGame, joinByCode, leaveGame, OnlineStore
 import { useSocial } from '../backend/social'
 import { setTrackedUser } from '../backend/track'
 import { onlineReady } from '../backend/supabase'
-import Friends from './screens/Friends'
-import Lobby from './screens/Lobby'
 import Login, { openLoginOn } from './screens/Login'
-import Seasons from './screens/Seasons'
 import Reactions from './components/Reactions'
 import Coach from './components/Coach'
 import { LogoMark } from './components/Logo'
 import { HelpButton } from './components/AccountMenu'
-import { BootSkeleton } from './components/Skeleton'
+import { BootSkeleton, PageSkeleton } from './components/Skeleton'
+
+// the social screens load on demand: most visits never open them
+const Friends = lazy(() => import('./screens/Friends'))
+const Lobby = lazy(() => import('./screens/Lobby'))
+const Seasons = lazy(() => import('./screens/Seasons'))
 
 const SAVED = 'fw-online-game' // the online game this device is part of, so a refresh rejoins it
 const saved = { get: () => { try { return localStorage.getItem(SAVED) } catch { return null } }, set: (id: string | null) => { try { if (id) localStorage.setItem(SAVED, id); else localStorage.removeItem(SAVED) } catch { /* not remembered */ } } }
@@ -148,6 +150,7 @@ export default function Root() {
           <div className="me"><HelpButton /></div>
         </header>
         <Coach screen={view} />
+        <Suspense fallback={<PageSkeleton />}>
         {view === 'friends' && <Friends me={account} social={social} onJoin={join} onChallenge={challenge} onRejoin={open} onSeasons={() => setView('leagues')} />}
         {view === 'leagues' && <Seasons me={account} friends={social.friends} onPlay={playLeague} />}
         {view === 'lobby' && lobby && (
@@ -160,6 +163,7 @@ export default function Root() {
             onLeave={() => { leaveGame(lobby.id); setLobby(null); saved.set(null); setPending(null); setView('app') }}
           />
         )}
+        </Suspense>
       </div>
     )
 
