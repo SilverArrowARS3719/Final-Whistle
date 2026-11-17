@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { animate, motion, useMotionValue, useMotionValueEvent, useReducedMotion } from 'motion/react'
+import { animate, motion, useMotionValue, useMotionValueEvent, useReducedMotionConfig } from 'motion/react'
 import { TEAMS, type Competition } from '../../game/data/winners'
 import { sfx } from '../../game/engine/sfx'
 
@@ -14,7 +14,7 @@ const inkOn = (hex: string) => {
  * to `spin.comp` (shared state, so every device in an online game watches the same spin), then calls onLanded.
  */
 export default function CompetitionWheel({ comps, spin, onLanded }: { comps: Competition[]; spin: { comp: string; at: number } | null; onLanded: () => void }) {
-  const reduce = useReducedMotion()
+  const reduce = useReducedMotionConfig()
   const rotate = useMotionValue(0)
   const seg = 360 / Math.max(comps.length, 1)
   const last = useRef(0)

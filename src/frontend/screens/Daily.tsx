@@ -16,6 +16,7 @@ import type { Account } from '../../backend/auth'
 import { dailyBoard, submitDaily, type BoardRow } from '../../backend/dailyBoard'
 import { track } from '../../backend/track'
 import Match from './Match'
+import { SkeletonRows } from '../components/Skeleton'
 
 const OUTCOME: Record<Outcome, { label: string; cls: string }> = {
   W: { label: 'Won', cls: 'w' }, WP: { label: 'Won on pens', cls: 'wp' }, LP: { label: 'Lost on pens', cls: 'lp' }, L: { label: 'Lost', cls: 'l' },
@@ -220,7 +221,7 @@ function DailyResult({ account, history }: { account: Account | null; history: R
         <div className="panel pad stack">
           <span className="label"><Trophy weight="bold" /> Today's table</span>
           {!account && <p className="small dim">Create an account or log in and your score goes on the table with everyone else's.</p>}
-          {account && !board && <div className="skeleton-list"><span /><span /><span /></div>}
+          {account && !board && <SkeletonRows label="Loading today's table" />}
           {board && board.length === 0 && <p className="small dim">You're the first today.</p>}
           {board && board.length > 0 && (
             <table className="table mini-table">

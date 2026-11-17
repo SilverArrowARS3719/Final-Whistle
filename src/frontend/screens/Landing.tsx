@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotionConfig } from 'motion/react'
 import { ArrowRight, CalendarCheck, CaretLeft, CaretRight, Fire, LockSimple } from '@phosphor-icons/react'
 import { dailyFor, dayKey, loadDaily, streakOf } from '../../game/engine/daily'
 import Atmosphere from '../components/Atmosphere'
 import Ticker from '../components/Ticker'
 import { useProgress } from './Profile'
 import { createPortal } from 'react-dom'
+import { usePrefs } from '../prefs'
 
 export type Mode = 'xi' | 'sot' | 'chaos' | 'auction' | 'winners'
 type Slide = { mode: Mode | null; n: number; title: string; line: string; img: string; glow: string }
@@ -38,13 +39,16 @@ export default function Landing({ onPlay, onDaily, resume }: { onPlay: (m: Mode)
   const todays = history[today]?.result
   const streak = streakOf(history, today)
   const progress = useProgress()
-  const reduce = useReducedMotion()
+  const reduce = useReducedMotionConfig()
+  const { effects } = usePrefs()
+  const still = reduce || !effects // no slow zoom on the photos
   const [[i, dir], setSlide] = useState<[number, number]>([0, 1])
   // dir: +1 = new slide enters from the right (next / swipe left), -1 = from the left
   const go = (to: number, d = to >= i ? 1 : -1) => setSlide([(to + SLIDES.length) % SLIDES.length, d])
   const s = SLIDES[i]
 
   const [dragging, setDragging] = useState(false)
+  const dragged = useRef(false)
   // autoplay keeps running on hover, pauses while dragging; each change restarts the timer
   useEffect(() => {
     if (reduce || dragging) return
@@ -58,23 +62,31 @@ export default function Landing({ onPlay, onDaily, resume }: { onPlay: (m: Mode)
   // the first card is the mode on the left; the next two follow
   const shown = [0, 1, 2].map((k) => (i + k) % SLIDES.length)
 
-  // trackpad swipe (sideways scroll), mouse wheel and arrow keys switch modes; one step per gesture
-  const gesture = useRef({ acc: 0, until: 0 })
+  // trackpad swipe, mouse wheel and arrow keys switch modes, one step per swipe. After a swipe the
+  // trackpad keeps sending fading "momentum" events; those are ignored, but a new swipe that starts
+  // during them (speed jumps up again, or the direction turns) counts straight away.
+  const gesture = useRef({ acc: 0, t: 0, mag: 0, sign: 0, locked: false, lockedAt: 0 })
   useEffect(() => {
     const onWheel = (e: WheelEvent) => {
-      const sideways = Math.abs(e.deltaX) > Math.abs(e.deltaY)
-      const fitsScreen = document.documentElement.scrollHeight <= innerHeight + 4
-      if (!sideways && !fitsScreen) return // let tall pages scroll normally
-      const d = sideways ? e.deltaX : e.deltaY
-      const g = gesture.current
-      const now = performance.now()
-      if (now < g.until) { g.until = now + 180; return } // still the same flick: ignore its momentum
+      if (e.ctrlKey) return // pinch-zoom
+      if (e.target instanceof Element && e.target.closest('[role=dialog], [role=menu]')) return // scrolling a panel
+      const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY
+      const g = gesture.current, now = performance.now(), mag = Math.abs(d), sign = Math.sign(d)
+      const pause = now - g.t > 160
+      const turned = sign !== 0 && g.sign !== 0 && sign !== g.sign
+      const rising = mag > g.mag * 1.4 + 2 && now - g.lockedAt > 250
+      g.t = now; g.mag = mag
+      if (sign) g.sign = sign
+      if (pause || turned) { g.acc = 0; g.locked = false }
+      else if (g.locked) {
+        if (!rising) return // momentum from the last swipe
+        g.locked = false; g.acc = 0
+      }
       g.acc += d
       if (Math.abs(g.acc) > 40) {
         const dir = Math.sign(g.acc) // read now: the updater below may run after acc is reset
         setSlide(([cur]) => [(cur + dir + SLIDES.length) % SLIDES.length, dir])
-        g.acc = 0
-        g.until = now + 450
+        g.acc = 0; g.locked = true; g.lockedAt = now
       }
     }
     const onKey = (e: KeyboardEvent) => {
@@ -91,17 +103,9 @@ export default function Landing({ onPlay, onDaily, resume }: { onPlay: (m: Mode)
     <>
       {/* every photo stays mounted; only the current one is visible, so photo and text can't disagree */}
       {createPortal(
-        <div className="backdrop" aria-hidden>
-          {SLIDES.map((x, k) => (
-            <motion.img
-              key={x.n}
-              src={x.img}
-              alt=""
-              initial={false}
-              animate={{ opacity: k === i ? 1 : 0, scale: k === i && !reduce ? 1.02 : 1.1 }}
-              transition={{ opacity: { duration: 0.8, ease }, scale: { duration: k === i ? AUTOPLAY_MS / 1000 + 1.5 : 0.8, ease: 'linear' } }}
-            />
-          ))}
+        <div className={`backdrop ${still ? 'still' : ''}`} aria-hidden>
+          {/* CSS transitions, not JS: the slow zoom runs on the GPU and never waits for React */}
+          {SLIDES.map((x, k) => <img key={x.n} src={x.img} alt="" decoding="async" draggable={false} className={`bd-slide ${k === i ? 'on' : ''}`} />)}
           <div className="backdrop-shade" />
           {/* each mode washes the stadium in its own colour */}
           <AnimatePresence initial={false}>
@@ -119,7 +123,10 @@ export default function Landing({ onPlay, onDaily, resume }: { onPlay: (m: Mode)
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.5}
         dragSnapToOrigin
-        onDragStart={() => setDragging(true)}
+        // a drag that ends on a card or button must not also click it
+        onPointerDownCapture={() => { dragged.current = false }}
+        onClickCapture={(e) => { if (dragged.current) { e.stopPropagation(); e.preventDefault() } }}
+        onDragStart={() => { dragged.current = true; setDragging(true) }}
         onDragEnd={(_, info) => {
           setDragging(false)
           // the slide follows the finger; let go past the threshold to switch (left = next, right = previous)
@@ -130,7 +137,7 @@ export default function Landing({ onPlay, onDaily, resume }: { onPlay: (m: Mode)
         <nav className="rail" aria-label="Game modes">
           {SLIDES.map((x, k) => (
             <button key={x.n} className={k === i ? 'on' : ''} onClick={() => go(k)} aria-label={x.title} aria-current={k === i}>
-              {k === i && !reduce && <motion.span className="fill" key={i} initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ duration: AUTOPLAY_MS / 1000, ease: 'linear' }} />}
+              {k === i && !reduce && <span className="fill" key={i} style={{ animationDuration: `${AUTOPLAY_MS}ms` }} />}
             </button>
           ))}
           <span className="rail-num num">0{i + 1}</span>
@@ -146,7 +153,7 @@ export default function Landing({ onPlay, onDaily, resume }: { onPlay: (m: Mode)
           {onDaily && !todays && (
             <motion.button className="daily-pill" onClick={onDaily} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
               <CalendarCheck weight="fill" />
-              <span>Today's puzzle · Daily Draft #{dailyFor(today).number}</span>
+              <span><span className="dp-long">Today's puzzle · </span>Daily Draft #{dailyFor(today).number}</span>
               <b>Play <ArrowRight weight="bold" /></b>
               {streak > 0 && <span className="streak"><Fire weight="fill" /> {streak}</span>}
             </motion.button>
@@ -192,8 +199,8 @@ export default function Landing({ onPlay, onDaily, resume }: { onPlay: (m: Mode)
                 whileHover={{ y: -8 }}
               >
                 <span className="slide-card-title">{x.title}</span>
-                <img src={x.img} alt="" />
-                <span className="slide-card-foot">{pos === 0 ? <b>Now showing · tap to play</b> : <>Mode {x.n}{!x.mode && ' · soon'}</>}</span>
+                <img src={x.img} alt="" draggable={false} />
+                <span className="slide-card-foot">{pos === 0 ? <b>Now showing<span className="tap-hint"> · tap to play</span></b> : <>Mode {x.n}{!x.mode && ' · soon'}</>}</span>
               </motion.button>
             )
           })}

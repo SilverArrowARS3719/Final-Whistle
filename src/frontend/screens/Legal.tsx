@@ -3,6 +3,7 @@ import { motion } from 'motion/react'
 import { ArrowLeft } from '@phosphor-icons/react'
 import Seg from '../components/Seg'
 import { APP_NAME, LEGAL } from '../../game/engine/config'
+import { resetConsent } from '../../backend/consent'
 
 export type LegalTab = 'Privacy' | 'Terms' | 'Cookies' | 'Credits'
 /** Open a legal page from anywhere (the cookie banner, the login card, settings). */
@@ -38,8 +39,8 @@ function Privacy() {
         </table>
         <p>We do not collect your location, contacts, photos, device identifiers, or anything from other apps.</p>
       </Section>
-      <Section title="Logging in with Google, Microsoft or Apple">
-        <p>If you choose one of these, that company confirms who you are and shares your email address with us. Their own privacy policy covers what they do. Apple lets you hide your real email; that works here too.</p>
+      <Section title="Logging in with Google or Microsoft">
+        <p>If you choose one of these, that company confirms who you are and shares your email address with us. Their own privacy policy covers what they do.</p>
       </Section>
       <Section title="Who else sees it">
         <p>Only the services that run the game: <b>Supabase</b> stores accounts and online games. Your username, league tables and Daily Draft scores are visible to other players you play with. Nobody else gets your data, and we never sell it.</p>
@@ -106,7 +107,8 @@ function Cookies() {
           <tbody>
             <tr><td>Saved game, mode and settings</td><td>So a refresh doesn't lose your draft</td></tr>
             <tr><td>Your profile, XP, Daily Draft history</td><td>So your progress is kept</td></tr>
-            <tr><td>Sound, colours and this consent choice</td><td>So we remember your preferences</td></tr>
+            <tr><td>Sound and colours</td><td>So we remember your preferences</td></tr>
+            <tr><td>Cookie <code>fw_consent</code></td><td>Remembers this choice for six months, then we ask again</td></tr>
             <tr><td>Sign-in session (accounts only)</td><td>So you stay logged in</td></tr>
           </tbody>
         </table>
@@ -118,6 +120,7 @@ function Cookies() {
           </tbody>
         </table>
         <p>Change your mind any time in Settings, then Privacy. Choosing "Only necessary" never blocks any part of the game.</p>
+        <button className="btn" onClick={resetConsent}>Change my cookie choice</button>
       </Section>
       <p className="small dim">Last updated {LEGAL.updated}.</p>
     </>
@@ -129,7 +132,7 @@ function Credits() {
     <>
       <p className="legal-lead">Where everything in the game comes from.</p>
       <Section title="Images">
-        <p>The mode photos were generated with AI tools (Canva and Higgsfield) under their terms for commercial use. They show no real clubs, logos or people. The login sky, the mascot Kicko, the player busts and the icons are drawn in code.</p>
+        <p>The mode photos were generated with AI tools (Canva and Higgsfield) under their terms for commercial use. They show no real clubs, logos or people. Kicko, our mascot, is our own render. The player busts and the icons are drawn in code.</p>
       </Section>
       <Section title="Fonts and icons">
         <p>Big Shoulders Display, Onest and Geist Mono (SIL Open Font License). Phosphor Icons (MIT licence). All are bundled with the game, so no font or icon requests go to other servers.</p>

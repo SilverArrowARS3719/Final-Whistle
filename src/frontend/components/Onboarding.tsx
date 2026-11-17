@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotionConfig } from 'motion/react'
 import { ArrowLeft, ArrowRight, CalendarCheck, Crown, Fire, Medal, Palette, UsersThree } from '@phosphor-icons/react'
 import { APP_NAME } from '../../game/engine/config'
 import { sfx } from '../../game/engine/sfx'
@@ -7,7 +7,10 @@ import Kicko, { type Pose } from './Kicko'
 
 const KEY = 'fw-onboarded'
 export const onboarded = () => { try { return localStorage.getItem(KEY) === '1' } catch { return true } }
-export const resetOnboarding = () => { try { localStorage.removeItem(KEY) } catch { /* private mode */ } }
+/** Replay everything: Kicko's questions, then this tour. Takes effect on the next load. */
+export const resetOnboarding = () => { try { localStorage.removeItem(KEY); sessionStorage.setItem(REPLAY, '1') } catch { /* private mode */ } }
+const REPLAY = 'fw-replay-welcome'
+export const takeReplay = () => { try { const v = sessionStorage.getItem(REPLAY) === '1'; sessionStorage.removeItem(REPLAY); return v } catch { return false } }
 
 const ease = [0.16, 1, 0.3, 1] as const
 const pop = (delay: number) => ({ initial: { opacity: 0, y: 24, scale: 0.85 }, animate: { opacity: 1, y: 0, scale: 1 }, transition: { type: 'spring' as const, stiffness: 260, damping: 18, delay } })
@@ -21,23 +24,16 @@ const MODES = [
 ]
 
 // Each step: what Kicko says, his pose, the glow colour of the stage and the little scene beside him.
-type Step = { pose: Pose; glow: string; title: string; say: ReactNode; scene: ReactNode }
+type Step = { pose: Pose; glow: string; photo: string; title: string; say: ReactNode; scene: ReactNode }
 const STEPS = (name?: string): Step[] => [
   {
-    pose: 'card', glow: '210 239 91',
+    pose: 'card', glow: '210 239 91', photo: '/img/xi.jpg',
     title: name ? `Hi ${name}, I'm Kicko.` : "Hi, I'm Kicko.",
     say: <>Welcome to <b>{APP_NAME}</b>. You build a team, then the match decides who was right. Play on one device with friends, against the computer, or online.</>,
-    scene: (
-      <div className="scene-pitch">
-        <span className="pitch-line" /><span className="pitch-circle" />
-        {[[22, 30], [50, 22], [78, 30], [34, 62], [66, 62], [50, 84]].map(([x, y], k) => (
-          <motion.i key={k} className="dot" style={{ left: `${x}%`, top: `${y}%` }} {...pop(0.2 + k * 0.07)} />
-        ))}
-      </div>
-    ),
+    scene: null,
   },
   {
-    pose: 'point', glow: '108 195 255',
+    pose: 'point', glow: '108 195 255', photo: '/img/chaos.jpg',
     title: 'Five ways to play.',
     say: <>Swipe through them on the home page. Draft legends, gamble on deals, survive chaos cards, win an auction or spin for a trophy.</>,
     scene: (
@@ -53,7 +49,7 @@ const STEPS = (name?: string): Step[] => [
     ),
   },
   {
-    pose: 'think', glow: '243 199 75',
+    pose: 'think', glow: '243 199 75', photo: '/img/sot.jpg',
     title: 'One puzzle a day.',
     say: <>The <b>Daily Draft</b> is the same for everyone. Eleven picks, three matches, a score out of 9. Come back every day to keep your streak alive.</>,
     scene: (
@@ -67,13 +63,13 @@ const STEPS = (name?: string): Step[] => [
     ),
   },
   {
-    pose: 'cheer', glow: '255 170 80',
+    pose: 'cheer', glow: '255 170 80', photo: '/img/winners.jpg',
     title: 'Leagues with your mates.',
     say: <>A <b>league</b> is your group. Send the code and anyone can join. Each season lasts a year and <b>most wins</b> takes the title. Add <b>friends</b> to challenge them any time.</>,
     scene: (
       <div className="scene-league">
         <motion.span className="code-chip num" {...pop(0.25)}><UsersThree weight="fill" /> CODE K7Q2XA</motion.span>
-        {[['You', 12], ['Ravi', 9], ['Adnan', 7]].map(([n, w], k) => (
+        {[['Martin', 12], ['Declan', 9], ['Gabriel', 7]].map(([n, w], k) => (
           <motion.div key={n} className={`league-row ${k === 0 ? 'lead' : ''}`} {...pop(0.35 + k * 0.1)}>
             <span className="num">{k + 1}</span><b>{n}</b><span className="num">{w} W</span>
           </motion.div>
@@ -82,7 +78,7 @@ const STEPS = (name?: string): Step[] => [
     ),
   },
   {
-    pose: 'whistle', glow: '210 239 91',
+    pose: 'whistle', glow: '210 239 91', photo: '/img/auction.jpg',
     title: 'Level up as you play.',
     say: <>Every game, win and Daily earns <b>XP</b>. Unlock achievements and new colour themes in Settings. Tap your name at the top to see your profile. Now, kick off!</>,
     scene: (
@@ -99,7 +95,7 @@ const STEPS = (name?: string): Step[] => [
 
 /** First-time tour after logging in, guided by Kicko. Five short steps; skip any time. Replay it from your profile. */
 export default function Onboarding({ name, onDone }: { name?: string; onDone: () => void }) {
-  const reduce = useReducedMotion()
+  const reduce = useReducedMotionConfig()
   const steps = STEPS(name)
   const [[i, dir], set] = useState<[number, number]>([0, 1])
   const last = i === steps.length - 1
@@ -125,6 +121,9 @@ export default function Onboarding({ name, onDone }: { name?: string; onDone: ()
         <button className="tour-skip" onClick={finish}>Skip</button>
 
         <div className="tour-stage">
+          <AnimatePresence initial={false}>
+            <motion.img key={s.photo} className="stage-photo" src={s.photo} alt="" initial={{ opacity: 0, scale: 1.08 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.7, ease }} />
+          </AnimatePresence>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div key={i} className="stage-scene" {...slide} transition={{ duration: 0.35, ease }}>{s.scene}</motion.div>
           </AnimatePresence>

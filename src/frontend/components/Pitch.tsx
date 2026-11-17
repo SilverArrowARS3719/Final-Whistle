@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, useMotionValue, useReducedMotion, useSpring, useTransform } from 'motion/react'
+import { AnimatePresence, motion, useMotionValue, useReducedMotionConfig, useSpring, useTransform } from 'motion/react'
 import { useMemo } from 'react'
 import { surname, type Player } from '../../game/data/players'
 import { linkEdges } from '../../game/data/formations'
@@ -21,7 +21,7 @@ function Badges({ perk, shielded }: { perk?: Perk; shielded?: boolean }) {
 // A pitch tilted back in 3D; player chips stand upright on it. Pointer movement swings the camera.
 export default function Pitch({ team, active, angle: a, interactive = true, footer = true, compact = false, ghost = null }: Props) {
   const angle = a ?? (compact ? 20 : 34)
-  const reduce = useReducedMotion()
+  const reduce = useReducedMotionConfig()
   const slots = slotsOf(team)
   const previewing = !!ghost && active !== undefined && !team.picks[active]
   const picks = previewing ? team.picks.map((p, i) => (i === active ? ghost : p)) : team.picks

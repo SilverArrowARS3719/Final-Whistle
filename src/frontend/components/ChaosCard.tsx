@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { motion, useReducedMotion } from 'motion/react'
+import { motion, useReducedMotionConfig } from 'motion/react'
 import { ArrowRight, Lightning } from '@phosphor-icons/react'
 import type { Active } from '../../game/engine/chaos'
 import { sfx } from '../../game/engine/sfx'
@@ -22,7 +22,7 @@ export function CardFace({ a, small }: { a: Active; small?: boolean }) {
 
 /** Everyone's card for the round, flipped one after another, plus the table card if one landed. */
 export function ChaosDeal({ deals, event, round, onDone, canContinue = true }: { deals: { name: string; a: Active | null }[]; event: Active | null; round: number; onDone: () => void; canContinue?: boolean }) {
-  const reduce = useReducedMotion()
+  const reduce = useReducedMotionConfig()
   const shown = event ? [...deals, { name: 'Everyone', a: event }] : deals
   useEffect(() => {
     const ids = shown.map((_, i) => setTimeout(sfx.flip, reduce ? 0 : 350 + i * 380))

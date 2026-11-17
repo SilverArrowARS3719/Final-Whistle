@@ -1,11 +1,11 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { motion, useMotionTemplate, useMotionValue, useReducedMotion, useSpring, useTransform } from 'motion/react'
+import { motion, useMotionTemplate, useMotionValue, useReducedMotionConfig, useSpring, useTransform } from 'motion/react'
 
 const SPRING = { stiffness: 180, damping: 18, mass: 0.6 }
 
 // 3D tilt that follows the pointer, plus a moving light sheen. Motion values only: no React re-renders.
 export default function Tilt({ children, max = 12, className, style }: { children: ReactNode; max?: number; className?: string; style?: CSSProperties }) {
-  const reduce = useReducedMotion()
+  const reduce = useReducedMotionConfig()
   const x = useMotionValue(0.5)
   const y = useMotionValue(0.5)
   const rotateX = useSpring(useTransform(y, [0, 1], [max, -max]), SPRING)

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotionConfig } from 'motion/react'
 import { ArrowRight, Shuffle, Trophy } from '@phosphor-icons/react'
 import { COMPETITIONS, TEAMS, squadOf } from '../../game/data/winners'
 import { TROPHIES, TROPHY_NAME } from '../../game/engine/career'
@@ -20,7 +20,7 @@ const byName = (n: string) => PLAYERS.find((p) => p.name === n) as Player
 
 // Ticks every `ms` while motion is allowed; returns the tick count.
 function useTicker(ms: number) {
-  const reduce = useReducedMotion()
+  const reduce = useReducedMotionConfig()
   const [t, setT] = useState(0)
   useEffect(() => {
     if (reduce) return

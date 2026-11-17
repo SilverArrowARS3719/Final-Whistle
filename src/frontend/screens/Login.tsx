@@ -1,11 +1,11 @@
-import { useState, type FormEvent } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { AppleLogo, ArrowLeft, ArrowRight } from '@phosphor-icons/react'
+import { Fragment, useState, type FormEvent } from 'react'
+import { AnimatePresence, motion, useReducedMotionConfig } from 'motion/react'
+import { ArrowLeft, ArrowRight } from '@phosphor-icons/react'
 import AgeWheel from '../components/AgeWheel'
-import BallLogo from '../components/BallLogo'
+import { LogoBadge } from '../components/Logo'
 import Kicko, { type Pose } from '../components/Kicko'
 import PasswordField from '../components/PasswordField'
-import SkyPitch from '../components/SkyPitch'
+import Backdrop from '../components/Backdrop'
 import { APP_NAME, LEGAL } from '../../game/engine/config'
 import { openLegal } from './Legal'
 import { passes } from '../../game/engine/password'
@@ -43,7 +43,7 @@ const ease = [0.16, 1, 0.3, 1] as const
 const MIN_ONLINE_AGE = LEGAL.minAge // accounts with friends and online play; offline play has no age limit
 const NOT_ON = "Online sign-in isn't switched on yet. Tap Play offline below; your progress on this device is kept."
 
-// Two steps: who you are (email and password, or Google / Microsoft / Apple), then how old you are.
+// Two steps: who you are (email and password, or Google / Microsoft), then how old you are.
 // Signing in to an existing account skips the second step.
 type Mode = 'create' | 'login' | 'offline'
 type Step = 'details' | 'age'
@@ -77,7 +77,7 @@ const fly = {
 const rise = { hidden: { opacity: 0, y: 18, filter: 'blur(6px)' }, shown: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.5, ease } } }
 
 export default function Login({ onDone, pickUsernameFor, onAccount, onBack }: Props) {
-  const reduce = useReducedMotion()
+  const reduce = useReducedMotionConfig()
   const thisYear = new Date().getFullYear()
   const saved = loadProfile()
   // dev only: ?auth=login previews signing in to an existing account
@@ -93,6 +93,7 @@ export default function Login({ onDone, pickUsernameFor, onAccount, onBack }: Pr
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [revealed, setRevealed] = useState(false)
+  const [young, setYoung] = useState(false) // under the online age: playing on this device is their way in
   const [focus, setFocus] = useState<'text' | 'password' | null>(null)
   // never pre-ticked: an account needs an active yes to the terms, and a parent's yes when under 16
   const [agreed, setAgreed] = useState(false)
@@ -136,7 +137,7 @@ export default function Login({ onDone, pickUsernameFor, onAccount, onBack }: Pr
       return
     }
     // age step: only now is the account actually created
-    if (tooYoung()) return setError(`Online accounts are for ${MIN_ONLINE_AGE} and over. You can still play offline on this device.`)
+    if (tooYoung()) { setYoung(true); return setError(`Online accounts are for ${MIN_ONLINE_AGE} and over. You can still play on this device: tap Play offline below.`) }
     if (!agreed) return setError('Please agree to the terms and privacy policy to create an account.')
     if (needsParent && !parentOk) return setError(`Under ${LEGAL.parentAge}? A parent or guardian needs to agree first. Ask them to tick the box with you.`)
     saveProfile({ ...(saved ?? { name: '' }), birthYear })
@@ -155,7 +156,7 @@ export default function Login({ onDone, pickUsernameFor, onAccount, onBack }: Pr
 
   return (
     <div className={`login ${revealed ? 'private' : ''}`}>
-      <SkyPitch />
+      <Backdrop src="/img/xi.jpg" zoomSeconds={14} />
       {/* privacy glass: frosts the stadium while the password is on show */}
       <AnimatePresence>
         {revealed && <motion.div className="privacy-glass" aria-hidden initial={{ opacity: 0, clipPath: 'inset(0 100% 0 0)' }} animate={{ opacity: 1, clipPath: 'inset(0 0% 0 0)' }} exit={{ opacity: 0, clipPath: 'inset(0 0 0 100%)' }} transition={{ duration: 0.55, ease }} />}
@@ -168,9 +169,9 @@ export default function Login({ onDone, pickUsernameFor, onAccount, onBack }: Pr
         </motion.button>
       )}
       <motion.form className="login-card" onSubmit={submit} noValidate variants={fly} initial={reduce ? 'shown' : 'hidden'} animate="shown" style={{ transformPerspective: 1400 }}>
-        {/* the ball drops in from the sky and settles at the top of the card */}
-        <div className="login-ball"><BallLogo size={76} /></div>
-        {/* Kicko peeks over the card: waves, points at what you type, looks away when the password shows, red card on an error */}
+        {/* the F drops in from the sky and settles at the top of the card */}
+        <div className="login-ball"><LogoBadge size={76} /></div>
+        {/* Kicko peeks over the card: leans in while you type, ducks out of sight when the password shows */}
         <motion.div className="login-kicko" initial={reduce ? false : { y: 90, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 160, damping: 14, delay: 1.1 }}>
           <Kicko pose={pose} size={104} />
         </motion.div>
@@ -216,29 +217,31 @@ export default function Login({ onDone, pickUsernameFor, onAccount, onBack }: Pr
         {error && <p className="small login-msg" role="alert">{error}</p>}
         {note && <p className="small accent login-msg" role="status">{note}</p>}
 
-        <motion.button variants={rise} className="login-cta" type="submit" disabled={busy} whileTap={reduce ? undefined : { scale: 0.97 }}>
-          {busy ? <span className="spin" aria-hidden /> : null}{cta}{!busy && <ArrowRight weight="bold" />}
+        <motion.button variants={rise} className="login-cta" type="submit" disabled={busy} aria-busy={busy} whileTap={reduce ? undefined : { scale: 0.97 }}>
+          {cta}<ArrowRight weight="bold" />
         </motion.button>
 
         {!pickUsernameFor && step === 'details' && (
           <motion.div variants={rise} className="login-social">
             <div className="divider"><span>or log in with</span></div>
             <div className="social-row">
-              <button type="button" className="social-ico" onClick={() => social('google')} aria-label="Continue with Google"><GoogleMark /></button>
-              <button type="button" className="social-ico" onClick={() => social('azure')} aria-label="Continue with Microsoft"><MicrosoftMark /></button>
-              <button type="button" className="social-ico" onClick={() => social('apple')} aria-label="Continue with Apple"><AppleLogo weight="fill" size={22} /></button>
+              <button type="button" className="social-ico" onClick={() => social('google')}><GoogleMark /><span>Google</span></button>
+              <button type="button" className="social-ico" onClick={() => social('azure')}><MicrosoftMark /><span>Microsoft</span></button>
             </div>
           </motion.div>
         )}
 
         {!pickUsernameFor && (
           <motion.p variants={rise} className="login-alt small">
-            {step === 'age' && mode !== 'offline' && <><button type="button" className="linkish" onClick={() => { setStep('details'); setVia(null); setError('') }}><ArrowLeft weight="bold" /> Back</button> · </>}
-            {mode === 'create' && step === 'details' && <>Have an account? <button type="button" className="linkish" onClick={() => switchTo('login')}>Log in</button> · </>}
-            {mode === 'login' && <>New here? <button type="button" className="linkish" onClick={() => switchTo('create')}>Create an account</button> · </>}
-            {mode === 'offline'
-              ? <button type="button" className="linkish" onClick={() => switchTo('create')}>Use an account instead</button>
-              : <button type="button" className="linkish" onClick={() => switchTo('offline')}>Play offline</button>}
+            {/* offline is only offered when an account isn't possible: sign-in switched off, or too young for one */}
+            {[
+              step === 'age' && mode !== 'offline' && <button type="button" className="linkish" onClick={() => { setStep('details'); setVia(null); setError('') }}><ArrowLeft weight="bold" /> Back</button>,
+              mode === 'create' && step === 'details' && <>Have an account? <button type="button" className="linkish" onClick={() => switchTo('login')}>Log in</button></>,
+              mode === 'login' && <>New here? <button type="button" className="linkish" onClick={() => switchTo('create')}>Create an account</button></>,
+              mode === 'offline'
+                ? <button type="button" className="linkish" onClick={() => switchTo('create')}>Use an account instead</button>
+                : (!onlineReady || young) && <button type="button" className="linkish" onClick={() => switchTo('offline')}>Play offline</button>,
+            ].filter(Boolean).map((part, k) => <Fragment key={k}>{k > 0 && ' · '}{part}</Fragment>)}
             <br /><span className="login-legal"><button type="button" className="linkish" onClick={() => openLegal('Privacy')}>Privacy</button> · <button type="button" className="linkish" onClick={() => openLegal('Terms')}>Terms</button> · <button type="button" className="linkish" onClick={() => openLegal('Cookies')}>Cookies</button></span>
           </motion.p>
         )}

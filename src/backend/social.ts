@@ -4,7 +4,6 @@ import { supabase } from './supabase'
 export type Person = { id: string; username: string }
 export type Friendship = { id: number; status: 'pending' | 'accepted'; requester: Person; addressee: Person }
 export type Invite = { id: number; game_id: string; mode: string | null; from: Person; created_at: string }
-export type Standing = { id: string; username: string; wins: number; played: number }
 
 const fail = (e: { message: string } | null) => { if (e) throw new Error(e.message) }
 
@@ -27,23 +26,20 @@ export async function codeForInvite(id: number): Promise<string> {
   return data as string
 }
 
-// Friends, requests, invites and the friends leaderboard for the signed-in player, kept live.
+// Friends, requests and invites for the signed-in player, kept live. (Standings live in Leagues.)
 export function useSocial(me: string | null) {
   const [friendships, setFriendships] = useState<Friendship[]>([])
   const [invites, setInvites] = useState<Invite[]>([])
-  const [board, setBoard] = useState<Standing[]>([])
   const [loaded, setLoaded] = useState(false)
 
   const refresh = useCallback(async () => {
     if (!supabase || !me) return
-    const [f, i, b] = await Promise.all([
+    const [f, i] = await Promise.all([
       supabase.from('friendships').select('id, status, requester:profiles!friendships_requester_fkey(id, username), addressee:profiles!friendships_addressee_fkey(id, username)'),
       supabase.from('game_invites').select('id, game_id, mode, created_at, from:profiles!game_invites_from_user_fkey(id, username)').eq('to_user', me).order('created_at', { ascending: false }),
-      supabase.rpc('friends_leaderboard'),
     ])
     setFriendships((f.data ?? []) as unknown as Friendship[])
     setInvites((i.data ?? []) as unknown as Invite[])
-    setBoard(((b.data ?? []) as Standing[]).map((s) => ({ ...s, wins: Number(s.wins), played: Number(s.played) })))
     setLoaded(true)
   }, [me])
 
@@ -65,7 +61,6 @@ export function useSocial(me: string | null) {
     incoming: friendships.filter((f) => f.status === 'pending' && f.addressee.id === me),
     outgoing: friendships.filter((f) => f.status === 'pending' && f.requester.id === me),
     invites,
-    board,
     refresh,
   }
 }

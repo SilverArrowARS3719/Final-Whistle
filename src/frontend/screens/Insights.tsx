@@ -3,6 +3,7 @@ import { ArrowsClockwise, Info } from '@phosphor-icons/react'
 import Seg from '../components/Seg'
 import { onlineReady } from '../../backend/supabase'
 import { fetchAllEvents, localEvents, summarise, trackingOn, type Ev } from '../../backend/track'
+import { SkeletonRows } from '../components/Skeleton'
 
 const MODE_NAMES: Record<string, string> = { xi: 'All-Time XI', sot: 'Stick or Twist', chaos: 'Chaos Draft', auction: 'Auction', winners: 'Team of Winners' }
 const SCREEN_NAMES: Record<string, string> = {
@@ -43,7 +44,7 @@ export default function Insights() {
       {!onlineReady && <p className="note small"><Info weight="bold" /> Online isn't set up, so this only shows this device. Once Supabase is connected (SETUP-ONLINE.md), every player's anonymous events land here.</p>}
       {error && <p className="note small" role="alert"><Info weight="bold" /> {error} Showing this device instead.</p>}
       {!trackingOn() && <p className="note small"><Info weight="bold" /> Tracking is switched off on this device (Settings, then Privacy).</p>}
-      {!s ? <div className="skeleton-list"><span /><span /><span /></div> : (
+      {!s ? <SkeletonRows rows={4} label="Loading insights" /> : (
         <>
           <div className="stat-grid">
             {[

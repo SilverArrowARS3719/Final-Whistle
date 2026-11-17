@@ -15,6 +15,10 @@ import Lobby from './screens/Lobby'
 import Login, { openLoginOn } from './screens/Login'
 import Seasons from './screens/Seasons'
 import Reactions from './components/Reactions'
+import Coach from './components/Coach'
+import { LogoMark } from './components/Logo'
+import { HelpButton } from './components/AccountMenu'
+import { BootSkeleton } from './components/Skeleton'
 
 const SAVED = 'fw-online-game' // the online game this device is part of, so a refresh rejoins it
 const saved = { get: () => { try { return localStorage.getItem(SAVED) } catch { return null } }, set: (id: string | null) => { try { if (id) localStorage.setItem(SAVED, id); else localStorage.removeItem(SAVED) } catch { /* not remembered */ } } }
@@ -109,7 +113,7 @@ export default function Root() {
     ? { online: true, mySeat: online.game.players.findIndex((p) => p.id === account.id), isHost: online.game.host === account.id, names: online.game.players.map((p) => p.username) }
     : { online: false, mySeat: -1, isHost: true, names: [] }, [online, account])
 
-  if (onlineReady && loading) return <div className="boot" role="status" aria-label="Loading"><span className="spin lg" /></div>
+  if (onlineReady && loading) return <BootSkeleton />
 
   // signed in but no username yet
   if (onlineReady && session && !loading && !account)
@@ -125,7 +129,7 @@ export default function Root() {
         <header className="topbar">
           <div className="row" style={{ gap: 14 }}>
             <button className="btn ghost sm" onClick={() => setView('app')}><ArrowLeft weight="bold" /> Back</button>
-            <span className="wordmark">{APP_NAME.split(' ')[0]} <i>{APP_NAME.split(' ').slice(1).join(' ')}</i></span>
+            <span className="wordmark"><LogoMark />{APP_NAME.split(' ')[0]} <i>{APP_NAME.split(' ').slice(1).join(' ')}</i></span>
           </div>
         </header>
         <NeedAccount what={view} onLogin={(m) => { openLoginOn(m); localStore.set('screen', 'login'); setView('app') }} />
@@ -135,13 +139,15 @@ export default function Root() {
   if (view !== 'app' && account)
     return (
       <div className="shell">
-        <header className="topbar">
-          <div className="row" style={{ gap: 14 }}>
-            {(view === 'friends' || view === 'leagues') && <button className="btn ghost sm" onClick={() => setView('app')}><ArrowLeft weight="bold" /> Back</button>}
+        <header className="topbar social-head">
+          <div className="row" style={{ gap: 14, flexWrap: 'nowrap' }}>
+            {(view === 'friends' || view === 'leagues') && <button className="btn ghost sm tb-btn" onClick={() => setView('app')} aria-label="Back"><ArrowLeft weight="bold" /> <span className="tb-label">Back</span></button>}
             {(view === 'friends' || view === 'leagues') && <nav className="social-tabs" aria-label="Social"><button className={view === 'leagues' ? 'on' : ''} onClick={() => setView('leagues')}>Leagues</button><button className={view === 'friends' ? 'on' : ''} onClick={() => setView('friends')}>Friends{social.invites.length + social.incoming.length > 0 && <span className="badge num">{social.invites.length + social.incoming.length}</span>}</button></nav>}
-            <span className="wordmark">{APP_NAME.split(' ')[0]} <i>{APP_NAME.split(' ').slice(1).join(' ')}</i></span>
+            <span className="wordmark"><LogoMark />{APP_NAME.split(' ')[0]} <i>{APP_NAME.split(' ').slice(1).join(' ')}</i></span>
           </div>
+          <div className="me"><HelpButton /></div>
         </header>
+        <Coach screen={view} />
         {view === 'friends' && <Friends me={account} social={social} onJoin={join} onChallenge={challenge} onRejoin={open} onSeasons={() => setView('leagues')} />}
         {view === 'leagues' && <Seasons me={account} friends={social.friends} onPlay={playLeague} />}
         {view === 'lobby' && lobby && (
@@ -193,7 +199,7 @@ function NeedAccount({ what, onLogin }: { what: 'leagues' | 'friends'; onLogin: 
           ? 'A league is your group of mates. Send the code and anyone can join. Play as many games as you like: each season lasts a year, and whoever wins the most is champion.'
           : 'Find other players by username, add them as friends, and challenge them to any mode.'}
       </p>
-      <p className="dim small">{onlineReady ? 'You need an account for this. New here? Create one in a few seconds. Already have one, maybe on another device? Log in.' : 'Online play is being set up. Once it is on, create an account or log in with Google, Microsoft, Apple or email.'}</p>
+      <p className="dim small">{onlineReady ? 'You need an account for this. New here? Create one in a few seconds. Already have one, maybe on another device? Log in.' : 'Online play is being set up. Once it is on, create an account or log in with Google, Microsoft or email.'}</p>
       <div className="row">
         <button className="btn primary lg" onClick={() => onLogin('create')}>Create account</button>
         <button className="btn lg" onClick={() => onLogin('login')}>Log in</button>

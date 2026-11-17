@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotionConfig } from 'motion/react'
 import { Check, Eye, EyeSlash, MagicWand, X } from '@phosphor-icons/react'
 import { rules, strength, strengthWord, suggest } from '../../game/engine/password'
 import { sfx } from '../../game/engine/sfx'
@@ -22,7 +22,7 @@ const levelColour = (s: number) => (s < 0.4 ? 'var(--hot)' : s < 0.8 ? 'var(--am
  * one morphs into the other in place. On a new account the field's own outline is the strength meter.
  */
 export default function PasswordField({ value, onChange, email = '', create = false, onReveal, onCaret, autoFocus }: Props) {
-  const reduce = useReducedMotion()
+  const reduce = useReducedMotionConfig()
   const [shown, setShown] = useState(false)
   const [scroll, setScroll] = useState(0)
   const input = useRef<HTMLInputElement>(null)

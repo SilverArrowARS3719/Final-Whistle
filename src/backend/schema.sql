@@ -315,7 +315,7 @@ begin
   for i in 1..n loop
     select t.username, t.wins, t.played into best from season_table(p_season, i) t
       where t.played > 0 order by t.wins desc, t.points desc, t.played asc limit 1;
-    if best is not null then season := i; username := best.username; wins := best.wins; played := best.played; return next; end if;
+    if found then season := i; username := best.username; wins := best.wins; played := best.played; return next; end if;
   end loop;
 end $$;
 

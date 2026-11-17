@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { usePersist } from '../../game/engine/persist'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotionConfig } from 'motion/react'
 import { ArrowsClockwise, HandPalm, Warning } from '@phosphor-icons/react'
 import { PLAYERS, type Player, surname } from '../../game/data/players'
 import Pitch from '../components/Pitch'
@@ -18,7 +18,7 @@ type Props = { teams: Team[]; order: number[]; onDone: (teams: Team[], gone: Set
 const rng = makeRng(Date.now())
 
 export default function StickOrTwist({ teams: start, order, onDone }: Props) {
-  const reduce = useReducedMotion()
+  const reduce = useReducedMotionConfig()
   const n = order.length
   const [teams, setTeams] = usePersist('sot:teams', start)
   const [pickNo, setPickNo] = usePersist('sot:pickNo', 0)

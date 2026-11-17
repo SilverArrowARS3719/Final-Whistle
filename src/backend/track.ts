@@ -64,7 +64,7 @@ function flushOnExit() {
   track('session_end', { seconds: Math.round((Date.now() - started) / 1000), last: lastScreen })
   const url = import.meta.env.VITE_SUPABASE_URL as string | undefined, key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
   if (!url || !key || !queue.length) return
-  fetch(`${url}/rest/v1/events`, { method: 'POST', keepalive: true, headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(queue) }).catch(() => {})
+  fetch(`${url}/rest/v1/events`, { method: 'POST', keepalive: true, headers: { apikey: key, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify(queue) }).catch(() => {})
   queue = []
 }
 

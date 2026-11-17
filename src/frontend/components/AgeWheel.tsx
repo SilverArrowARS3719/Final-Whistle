@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, type KeyboardEvent, type PointerEvent as RPointerEvent } from 'react'
-import { animate, motion, useMotionValue, useMotionValueEvent, useReducedMotion, useTransform, useVelocity, type AnimationPlaybackControls, type MotionValue } from 'motion/react'
+import { animate, motion, useMotionValue, useMotionValueEvent, useReducedMotionConfig, useTransform, useVelocity, type AnimationPlaybackControls, type MotionValue } from 'motion/react'
 import { sfx } from '../../game/engine/sfx'
 
 const STEP = 20 // degrees between years round the drum
@@ -14,7 +14,7 @@ type Props = { value: number; onChange: (year: number) => void; min?: number; ma
  * spinning and settles into a pocket), scroll it, or use the arrow keys. Every year that passes clicks.
  */
 export default function AgeWheel({ value, onChange, min = new Date().getFullYear() - 100, max = new Date().getFullYear() - 5, label = 'Year of birth' }: Props) {
-  const reduce = useReducedMotion()
+  const reduce = useReducedMotionConfig()
   const years = useMemo(() => Array.from({ length: max - min + 1 }, (_, i) => min + i), [min, max])
   const pos = useMotionValue(value - min) // fractional index; whole numbers are pockets
   const speed = useVelocity(pos)

@@ -1,11 +1,20 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { MusicNotes, ShieldCheck, SlidersHorizontal, SpeakerHigh, SpeakerSlash, X } from '@phosphor-icons/react'
+import { Compass, Cookie, MusicNotes, ShieldCheck, SlidersHorizontal, SpeakerHigh, SpeakerSlash, X } from '@phosphor-icons/react'
 import { setTracking, trackingOn } from '../../backend/track'
+import { resetConsent } from '../../backend/consent'
 import { openLegal } from '../screens/Legal'
 import ColourLab from '../theme/ThemeLab'
 import Seg from './Seg'
 import { loadSound, setSound, sfx, type TrackId } from '../../game/engine/sfx'
+import { setPrefs, usePrefs } from '../prefs'
+import { resetOnboarding } from './Onboarding'
+import { resetTips } from './Coach'
+
+type Tab = 'Display' | 'Sound' | 'Colours' | 'Privacy'
+const TABS: Tab[] = ['Display', 'Sound', 'Colours', 'Privacy']
+/** Open the settings sheet from anywhere (the account menu, the profile page). */
+export const openSettings = (tab: Tab = 'Display') => dispatchEvent(new CustomEvent('fw-settings', { detail: tab }))
 
 const TRACKS: { id: TrackId; name: string; desc: string }[] = [
   { id: 'off', name: 'Off', desc: 'Just the game sounds.' },
@@ -14,10 +23,16 @@ const TRACKS: { id: TrackId; name: string; desc: string }[] = [
   { id: 'terrace', name: 'Terrace', desc: 'Crowd noise, stomp, stomp, clap.' },
 ]
 
-/** One floating button for per-device settings: colours and sound. Mounted once in main.tsx. */
+/** Per-device settings: display, sound, colours, privacy. Mounted once in main.tsx; the corner button and the account menu both open it. */
 export default function QuickSettings() {
   const [open, setOpen] = useState(false)
-  const [tab, setTab] = useState<'Sound' | 'Colours' | 'Privacy'>('Sound')
+  const [tab, setTab] = useState<Tab>('Display')
+
+  useEffect(() => {
+    const show = (e: Event) => { setTab((e as CustomEvent<Tab>).detail ?? 'Display'); setOpen(true) }
+    addEventListener('fw-settings', show)
+    return () => removeEventListener('fw-settings', show)
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -48,13 +63,39 @@ export default function QuickSettings() {
                 <h3>Settings</h3>
                 <button className="btn ghost sm" onClick={() => setOpen(false)} aria-label="Close"><X weight="bold" /></button>
               </header>
-              <Seg id="qs-tab" options={['Sound', 'Colours', 'Privacy'] as ('Sound' | 'Colours' | 'Privacy')[]} value={tab} onChange={setTab} />
-              {tab === 'Sound' ? <SoundPanel /> : tab === 'Colours' ? <ColourLab /> : <PrivacyPanel />}
+              <Seg id="qs-tab" options={TABS} value={tab} onChange={setTab} />
+              {tab === 'Display' ? <DisplayPanel /> : tab === 'Sound' ? <SoundPanel /> : tab === 'Colours' ? <ColourLab /> : <PrivacyPanel />}
             </motion.aside>
           </>
         )}
       </AnimatePresence>
     </>
+  )
+}
+
+function Toggle({ on, onChange, title, desc }: { on: boolean; onChange: (v: boolean) => void; title: string; desc: string }) {
+  return (
+    <button className="toggle-row" role="switch" aria-checked={on} onClick={() => { onChange(!on); sfx.tick() }}>
+      <span><b>{title}</b><span className="small dim">{desc}</span></span>
+      <i className={`switch ${on ? 'on' : ''}`} aria-hidden />
+    </button>
+  )
+}
+
+function DisplayPanel() {
+  const p = usePrefs()
+  return (
+    <div className="stack" style={{ gap: 12 }}>
+      <Toggle on={p.effects} onChange={(effects) => setPrefs({ effects })} title="Stadium effects"
+        desc="Camera flashes, drifting photos and frosted glass. Turn off if the game feels slow." />
+      <Toggle on={p.motion === 'full'} onChange={(on) => setPrefs({ motion: on ? 'full' : 'reduced' })} title="Animations"
+        desc="Slides, bounces and card flips. Off keeps simple fades only." />
+      <Toggle on={p.tips} onChange={(tips) => setPrefs({ tips })} title="Kicko's tips"
+        desc="A short tip the first time you open each screen. The ? button always shows them." />
+      <button className="btn ghost" style={{ justifySelf: 'start', marginTop: 8 }} onClick={() => { resetOnboarding(); resetTips(); location.reload() }}>
+        <Compass weight="bold" /> Replay the onboarding
+      </button>
+    </div>
   )
 }
 
@@ -107,6 +148,7 @@ function PrivacyPanel() {
       <button className={`btn ${on ? '' : 'primary'}`} aria-pressed={on} onClick={() => { setTracking(!on); set(!on) }}>
         <ShieldCheck weight="bold" /> {on ? 'Usage stats are on. Turn off' : 'Usage stats are off. Turn on'}
       </button>
+      <button className="btn ghost" onClick={resetConsent}><Cookie weight="bold" /> Show the cookie banner again</button>
       <p className="small">
         <button className="linkish" onClick={() => openLegal('Privacy')}>Privacy policy</button> · <button className="linkish" onClick={() => openLegal('Terms')}>Terms</button> · <button className="linkish" onClick={() => openLegal('Cookies')}>Cookies</button> · <button className="linkish" onClick={() => openLegal('Credits')}>Credits</button>
       </p>

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { motion, useReducedMotion } from 'motion/react'
+import { motion, useReducedMotionConfig } from 'motion/react'
 import type { Player, Pos } from '../../game/data/players'
 import PlayerCard from '../components/PlayerCard'
 import { useAutoReady, useOnline } from '../online'
@@ -22,7 +22,7 @@ type Props = {
 const ease = [0.16, 1, 0.3, 1] as const
 
 export default function Handover({ name, lastTeam, lastPick, lastOvr, lastPos, nextPos, hint, pickNo, total, onReady, seat: seatProp }: Props) {
-  const reduce = useReducedMotion()
+  const reduce = useReducedMotionConfig()
   const pct = (pickNo / total) * 100
   const o = useOnline()
   const seat = seatProp ?? o.names.indexOf(name)

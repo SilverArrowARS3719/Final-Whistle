@@ -1,11 +1,13 @@
 import { useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotionConfig } from 'motion/react'
+import { usePrefs } from '../prefs'
 
 // Full-screen photo behind the page with a slow Ken Burns zoom. Each new photo gets a higher
 // z-index so the newest one is always on top, however fast the source changes.
 export default function Backdrop({ src, zoomSeconds = 9 }: { src: string; zoomSeconds?: number }) {
-  const reduce = useReducedMotion()
+  const { effects } = usePrefs()
+  const reduce = useReducedMotionConfig() || !effects
   const layer = useRef({ src, n: 0 })
   if (layer.current.src !== src) layer.current = { src, n: layer.current.n + 1 }
 
@@ -18,10 +20,11 @@ export default function Backdrop({ src, zoomSeconds = 9 }: { src: string; zoomSe
           src={src}
           alt=""
           style={{ zIndex: layer.current.n }}
-          initial={{ opacity: 0, scale: 1.12 }}
-          animate={{ opacity: 1, scale: reduce ? 1 : 1.02 }}
+          // a whole `transform` string runs on the GPU; `scale` alone would tick on the main thread for 9 s
+          initial={{ opacity: 0, transform: 'scale(1.12)' }}
+          animate={{ opacity: 1, transform: reduce ? 'scale(1)' : 'scale(1.02)' }}
           exit={{ opacity: 0, transition: { duration: 0.9, delay: 0.25 } }}
-          transition={{ opacity: { duration: 0.9 }, scale: { duration: zoomSeconds, ease: 'linear' } }}
+          transition={{ opacity: { duration: 0.9 }, transform: { duration: zoomSeconds, ease: 'linear' } }}
         />
       </AnimatePresence>
       </div>

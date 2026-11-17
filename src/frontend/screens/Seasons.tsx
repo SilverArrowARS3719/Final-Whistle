@@ -5,6 +5,7 @@ import type { Account } from '../../backend/auth'
 import type { Person } from '../../backend/social'
 import { addToSeason, createSeason, currentSeason, daysLeft, joinSeason, leagueHonours, leaveSeason, mySeasons, seasonEnds, seasonTable, type Honour, type Season, type SeasonRow } from '../../backend/seasons'
 import Seg from '../components/Seg'
+import { SkeletonRows } from '../components/Skeleton'
 
 type Props = { me: Account; friends: Person[]; onPlay: (memberIds: string[], mode: string) => Promise<void> }
 const MODES: [string, string][] = [['xi', 'All-Time XI'], ['sot', 'Stick or Twist'], ['chaos', 'Chaos Draft'], ['auction', 'Auction'], ['winners', 'Team of Winners']]
@@ -54,7 +55,7 @@ export default function Seasons({ me, friends, onPlay }: Props) {
               <span className="label">Name</span>
               <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="Sunday League" />
             </label>
-            <button className="btn primary" disabled={busy || !name.trim()}>{busy ? <span className="spin" aria-hidden /> : <Plus weight="bold" />} Create league</button>
+            <button className="btn primary" disabled={busy || !name.trim()} aria-busy={busy}><Plus weight="bold" /> Create league</button>
           </form>
           <form className="panel pad stack" onSubmit={(e) => { e.preventDefault(); act(() => joinSeason(code)) }}>
             <h3>Join with a league code</h3>
@@ -71,7 +72,7 @@ export default function Seasons({ me, friends, onPlay }: Props) {
 
         <div className="panel pad stack">
           <h3>Your leagues</h3>
-          {list === null && <div className="skeleton-list" aria-busy="true" aria-label="Loading leagues"><i /><i /></div>}
+          {list === null && <SkeletonRows rows={2} label="Loading leagues" />}
           {list?.length === 0 && <p className="small dim">No leagues yet. Start one and send the code to your mates, or join one with a code someone sent you.</p>}
           {list?.map((s, i) => {
             const left = daysLeft(s)
@@ -155,7 +156,7 @@ function SeasonTable({ season, me, friends, onBack, onPlay }: { season: Season; 
             <Seg id="league-mode" options={MODES.map(([id]) => id)} value={mode} onChange={setMode} label={(m) => MODES.find(([id]) => id === m)![1]} />
           </div>
           <div className="row">
-            <button className="btn primary lg" onClick={play} disabled={starting || !rows || rows.length < 2}>{starting ? <span className="spin" aria-hidden /> : <Play weight="fill" />} Start and invite everyone</button>
+            <button className="btn primary lg" onClick={play} disabled={starting || !rows || rows.length < 2} aria-busy={starting}><Play weight="fill" /> Start and invite everyone</button>
             <button className="btn lg" onClick={share}><ShareNetwork weight="bold" /> Invite with the code</button>
           </div>
           {rows && rows.length < 2 && <p className="small dim">You're the only one here. Send the code to your mates first.</p>}
@@ -165,7 +166,7 @@ function SeasonTable({ season, me, friends, onBack, onPlay }: { season: Season; 
       {now > 1 && <div style={{ marginBottom: 16 }}><Seg id="league-season" options={Array.from({ length: now }, (_, k) => now - k)} value={shown} onChange={setShown} label={(n) => (n === now ? `Season ${n} (now)` : `Season ${n}`)} /></div>}
 
       <div className="panel pad" style={{ overflowX: 'auto' }}>
-        {rows === null ? <div className="skeleton-list" aria-busy="true" aria-label="Loading table"><i /><i /><i /></div> : (
+        {rows === null ? <SkeletonRows label="Loading table" /> : (
           <table className="table season-table">
             <thead><tr><th>#</th><th>Player</th><th>P</th><th>W</th><th>L</th><th>Pts</th><th>Streak</th><th>Form</th><th title="Points in the last 7 days">7 days</th></tr></thead>
             <tbody>

@@ -37,8 +37,8 @@ export default function ShareResult({ card, label = 'Share result' }: { card: Re
 
   return (
     <>
-      <button className="btn" onClick={open} disabled={busy}>
-        {busy ? <span className="spin" aria-hidden /> : <ShareNetwork weight="bold" />} {label}
+      <button className="btn" onClick={open} disabled={busy} aria-busy={busy}>
+        <ShareNetwork weight="bold" /> {label}
       </button>
       {error && <p className="small" role="alert" style={{ color: 'var(--hot)' }}>{error}</p>}
       <AnimatePresence>

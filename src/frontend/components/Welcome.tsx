@@ -1,10 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotionConfig } from 'motion/react'
 import { ArrowLeft, Brain, CalendarCheck, Desktop, Fire, Lightning, Robot, Smiley, SoccerBall, Trophy, WifiHigh } from '@phosphor-icons/react'
 import type { Mode } from '../screens/Landing'
 import { sfx } from '../../game/engine/sfx'
 import Kicko, { type Pose } from './Kicko'
-import SkyPitch from './SkyPitch'
+import { usePrefs } from '../prefs'
 
 // Duolingo-style first visit: the mascot asks a few one-tap questions, recommends where to start, and only
 // then asks for an account. Answers stay on this device and only shape the suggestion and the daily goal.
@@ -65,10 +65,12 @@ const MODE_NAME: Record<Mode, string> = { xi: 'All-Time XI', sot: 'Stick or Twis
 
 const ease = [0.16, 1, 0.3, 1] as const // ease-out: fast in, gentle landing
 
-type Props = { onPlay: (m: Mode) => void; onHaveAccount: () => void }
+type Props = { onPlay: (m: Mode) => void; onHaveAccount: () => void; loggedIn?: boolean; onClose?: () => void }
 
-export default function Welcome({ onPlay, onHaveAccount }: Props) {
-  const reduce = useReducedMotion()
+export default function Welcome({ onPlay, onHaveAccount, loggedIn = false, onClose }: Props) {
+  const reduce = useReducedMotionConfig()
+  const { effects } = usePrefs()
+  const still = reduce || !effects
   const [step, setStep] = useState(0) // 0 = hello, 1..n = questions, n+1 = recommendation
   const [answers, setAnswers] = useState<Answers>({})
   const [picked, setPicked] = useState<string | null>(null)
@@ -89,16 +91,26 @@ export default function Welcome({ onPlay, onHaveAccount }: Props) {
   const finish = () => { save(answers); sfx.whistle(); onPlay(rec.mode) }
   const haveAccount = () => { save(answers); onHaveAccount() }
 
+  const photo = step > n ? `/img/${rec.mode}.jpg` : ['/img/xi.jpg', '/img/winners.jpg', '/img/sot.jpg', '/img/chaos.jpg', '/img/winners.jpg'][step]
   const pose: Pose = step === 0 ? 'wave' : ask ? ask.pose : 'card'
-  const say = step === 0 ? "Hi! I'm Kicko, your referee. Four quick taps and I'll find the right game for you." : ask ? ask.say : `${MODE_NAME[rec.mode]}! ${rec.why}`
+  const say = step === 0 ? "Hi, I'm Kicko." : ask ? ask.say : 'Your game is ready.'
+  const sub = step === 0 ? "I'm the referee here. Four quick questions and I'll find the right game for you." : null
 
   return (
     <motion.div className="welcome" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.25 } }}>
-      <SkyPitch />
+      {/* the same floodlit photo world as the hero: each question gets its own stadium */}
+      <div className="welcome-bg" aria-hidden>
+        <AnimatePresence initial={false}>
+          <motion.img key={photo} src={photo} alt="" initial={{ opacity: 0, scale: 1.1 }} animate={{ opacity: 1, scale: 1.02 }} exit={{ opacity: 0 }}
+            transition={{ opacity: { duration: 0.8 }, scale: { duration: still ? 0 : 12, ease: 'linear' } }} />
+        </AnimatePresence>
+        <div className="backdrop-shade" />
+      </div>
       <div className="welcome-inner">
         {/* progress, Duolingo style: a fat bar that fills with a little shine */}
         <div className="welcome-top">
-          {step > 0 ? <button className="welcome-back" onClick={() => setStep(step - 1)} aria-label="Back"><ArrowLeft weight="bold" /></button> : <span />}
+          {step > 0 ? <button className="welcome-back" onClick={() => setStep(step - 1)} aria-label="Back"><ArrowLeft weight="bold" /></button>
+            : onClose ? <button className="welcome-back" onClick={onClose} aria-label="Back to the modes"><ArrowLeft weight="bold" /></button> : <span />}
           <div className="welcome-bar" role="progressbar" aria-valuemin={0} aria-valuemax={n + 1} aria-valuenow={step} aria-label="Progress">
             <motion.i initial={false} animate={{ width: `${Math.max(4, (step / (n + 1)) * 100)}%` }} transition={{ type: 'spring', stiffness: 120, damping: 18 }} />
           </div>
@@ -107,11 +119,12 @@ export default function Welcome({ onPlay, onHaveAccount }: Props) {
         {/* Kicko and his speech bubble */}
         <div className="welcome-talk">
           <motion.div key={`k-${pose}`} initial={reduce ? false : { scale: 0.8, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 15 }}>
-            <Kicko pose={pose} size={step === 0 || step > n ? 150 : 96} />
+            <Kicko pose={pose} size={step === 0 || step > n ? 170 : 120} />
           </motion.div>
           <AnimatePresence mode="wait">
             <motion.p key={step} className="bubble" initial={reduce ? false : { opacity: 0, scale: 0.85, x: -12 }} animate={{ opacity: 1, scale: 1, x: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.35, ease }}>
               {say}
+              {sub && <span className="bubble-sub">{sub}</span>}
             </motion.p>
           </AnimatePresence>
         </div>
@@ -136,8 +149,9 @@ export default function Welcome({ onPlay, onHaveAccount }: Props) {
               <motion.div key="rec" className="rec-card" initial={reduce ? false : { opacity: 0, y: 30, scale: 0.94 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.55, ease, delay: 0.15 }}>
                 <img src={`/img/${rec.mode}.jpg`} alt="" />
                 <div>
-                  <span className="label">Your starting mode</span>
+                  <span className="label">Kicko recommends</span>
                   <b>{MODE_NAME[rec.mode]}</b>
+                  <span className="rec-why">{rec.why}</span>
                   {answers.goal && <span className="small">Daily goal: {answers.goal === 1 ? 'the Daily Draft' : `Daily Draft + ${answers.goal - 1} game${answers.goal > 2 ? 's' : ''}`} · aiming for a {answers.streak ?? 7}-day streak</span>}
                 </div>
               </motion.div>
@@ -147,13 +161,13 @@ export default function Welcome({ onPlay, onHaveAccount }: Props) {
 
         <div className="welcome-foot">
           {step === 0 && <>
-            <button className="chunky" onClick={next} autoFocus>Get started</button>
-            <button className="chunky ghost" onClick={haveAccount}>I already have an account</button>
+            <button className="btn primary lg welcome-cta" onClick={next} autoFocus>Get started</button>
+            <button className="btn glass lg welcome-cta" onClick={haveAccount}>{loggedIn ? 'Skip to the tour' : 'I already have an account'}</button>
           </>}
-          {ask && <button className="chunky" disabled={!picked} onClick={next}>Continue</button>}
+          {ask && <button className="btn primary lg welcome-cta" disabled={!picked} onClick={next}>Continue</button>}
           {step > n && <>
-            <button className="chunky" onClick={finish}>Play {MODE_NAME[rec.mode]}</button>
-            <span className="small welcome-note">Next, create a free account (or play offline) so your progress is saved.</span>
+            <button className="btn primary lg welcome-cta" onClick={finish}>Play {MODE_NAME[rec.mode]}</button>
+            {!loggedIn && <span className="small welcome-note">Next, create a free account so your progress is saved.</span>}
           </>}
         </div>
       </div>

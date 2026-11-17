@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
-import { ArrowRight, Check, Lightning, MagnifyingGlass, Medal, Trophy, UserPlus, X } from '@phosphor-icons/react'
+import { ArrowRight, Check, Lightning, MagnifyingGlass, Medal, UserPlus, X } from '@phosphor-icons/react'
 import { myGames, type GameRow } from '../../backend/game'
 import type { Account } from '../../backend/auth'
 import { acceptRequest, codeForInvite, dismissInvite, removeFriendship, searchUsers, sendFriendRequest, type Person, type useSocial } from '../../backend/social'
+import { SkeletonRows } from '../components/Skeleton'
 
 type Props = {
   me: Account
@@ -24,7 +25,7 @@ export default function Friends({ me, social, onJoin, onChallenge, onRejoin, onS
   const [challenging, setChallenging] = useState<string | null>(null)
   const [games, setGames] = useState<GameRow[]>([])
   useEffect(() => { myGames(me.id).then(setGames).catch(() => {}) }, [me.id, social.invites.length])
-  const { friends, incoming, outgoing, invites, board } = social
+  const { friends, incoming, outgoing, invites } = social
 
   useEffect(() => {
     const id = setTimeout(() => searchUsers(q, me.id).then(setFound), 200) // debounce typing
@@ -53,7 +54,7 @@ export default function Friends({ me, social, onJoin, onChallenge, onRejoin, onS
         </div>
         <button className="btn lg" onClick={onSeasons}><Medal weight="fill" color="var(--accent)" /> Leagues</button>
       </div>
-      {!social.loaded && <div className="skeleton-list" aria-busy="true" aria-label="Loading friends"><i /><i /><i /></div>}
+      {!social.loaded && <SkeletonRows label="Loading friends" />}
       {msg && <p className={`small ${msg.ok ? 'accent' : ''}`} style={msg.ok ? undefined : { color: 'var(--hot)' }} role="status">{msg.text}</p>}
 
       <div className="friends-grid">
@@ -131,20 +132,6 @@ export default function Friends({ me, social, onJoin, onChallenge, onRejoin, onS
         </div>
 
         <div className="stack">
-          <div className="panel pad stack">
-            <h3><Trophy weight="fill" color="var(--accent)" /> Leaderboard</h3>
-            {board.length <= 1 && <p className="small dim">Add friends and finish online games together to fill this up.</p>}
-            <table className="table">
-              <thead><tr><th>#</th><th>Player</th><th>Wins</th><th>Played</th></tr></thead>
-              <tbody>
-                {board.map((s, i) => (
-                  <tr key={s.id} className={s.id === me.id ? 'lead' : ''}>
-                    <td>{i + 1}</td><td>@{s.username}</td><td>{s.wins}</td><td>{s.played}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
           <div className="panel pad stack">
             <h3>Your friends ({friends.length})</h3>
             {friends.length === 0 && <p className="small dim">Search for a username to send your first request.</p>}

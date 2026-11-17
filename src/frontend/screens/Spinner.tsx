@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePersist } from '../../game/engine/persist'
 import { HostOnly, useIsHost } from '../online'
-import { animate, motion, useAnimationControls, useMotionValue, useMotionValueEvent, useReducedMotion } from 'motion/react'
+import { animate, motion, useAnimationControls, useMotionValue, useMotionValueEvent, useReducedMotionConfig } from 'motion/react'
 import { ArrowRight, ArrowsClockwise, HandSwipeRight } from '@phosphor-icons/react'
 import { makeRng, shuffle } from '../../game/engine/rng'
 import { sfx } from '../../game/engine/sfx'
@@ -11,7 +11,7 @@ const COLORS = ['#d2ef5b', '#e9eee4', '#8fc9a0', '#c9d3c4', '#f3c74b', '#b9d7f0'
 const BULBS = 24
 
 export default function Spinner({ names, onDone }: { names: string[]; onDone: (order: number[]) => void }) {
-  const reduce = useReducedMotion()
+  const reduce = useReducedMotionConfig()
   const [order, setOrder] = useState<number[] | null>(null)
   const [spinning, setSpinning] = useState(false)
   const rotate = useMotionValue(0)

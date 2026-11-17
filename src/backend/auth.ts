@@ -43,7 +43,7 @@ export async function signUp(email: string, password: string, birthYear?: number
 export async function signIn(email: string, password: string) {
   fail((await supabase!.auth.signInWithPassword({ email, password })).error)
 }
-export type Provider = 'google' | 'azure' | 'apple' // azure = Microsoft accounts in Supabase
+export type Provider = 'google' | 'azure' // azure = Microsoft accounts in Supabase
 export async function signInWith(provider: Provider) {
   fail((await supabase!.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.origin } })).error)
 }

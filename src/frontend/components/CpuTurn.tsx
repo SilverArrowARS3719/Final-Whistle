@@ -8,6 +8,7 @@ import { makeRng } from '../../game/engine/rng'
 import { sfx } from '../../game/engine/sfx'
 import Pitch from './Pitch'
 import PlayerCard from './PlayerCard'
+import { CardSkeleton } from './Skeleton'
 
 /** The computer's turn: a short think, the pick is revealed, then play moves on. */
 export default function CpuTurn({ team, slot, available, onPick }: { team: Team; slot: number; available: Player[]; onPick: (p: Player) => void }) {
@@ -38,7 +39,7 @@ export default function CpuTurn({ team, slot, available, onPick }: { team: Team;
           <AnimatePresence mode="wait">
             {choice
               ? <motion.div key="c" initial={{ rotateY: 90, opacity: 0 }} animate={{ rotateY: 0, opacity: 1 }} transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}><PlayerCard p={choice} ovr={effectiveOvr(choice, pos)} tilt={false} /></motion.div>
-              : <motion.div key="t" className="cpu-thinking" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><span className="spin lg" /></motion.div>}
+              : <motion.div key="t" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><CardSkeleton /></motion.div>}
           </AnimatePresence>
         </div>
         <Pitch team={team} active={slot} compact footer={false} />

@@ -128,7 +128,7 @@ export default function Match({ result, teams, seats, kicker, onFinish }: { resu
           <div className="kv">
             <div><span className="label">Possession</span><b>{st.poss[0]}%</b></div>
             <div><span className="label">Shots</span><b>{st.a.shots}</b></div>
-            <div><span className="label">Big chances</span><b>{st.a.chances}</b></div>
+            <div className="kv-extra"><span className="label">Big chances</span><b>{st.a.chances}</b></div>
           </div>
         </div>
         <div className="scorebox">
@@ -139,7 +139,7 @@ export default function Match({ result, teams, seats, kicker, onFinish }: { resu
         <div className="team r">
           <div className="tname">{nb}</div>
           <div className="kv">
-            <div><span className="label">Big chances</span><b>{st.b.chances}</b></div>
+            <div className="kv-extra"><span className="label">Big chances</span><b>{st.b.chances}</b></div>
             <div><span className="label">Shots</span><b>{st.b.shots}</b></div>
             <div><span className="label">Possession</span><b>{st.poss[1]}%</b></div>
           </div>

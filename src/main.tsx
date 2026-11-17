@@ -6,16 +6,20 @@ import QuickSettings from './frontend/components/QuickSettings.tsx'
 import ProgressToasts from './frontend/components/ProgressToasts.tsx'
 import Atmosphere from './frontend/components/Atmosphere.tsx'
 import CookieBanner from './frontend/components/CookieBanner.tsx'
+import { applyPrefs, PrefsMotion } from './frontend/prefs.tsx'
 import { startTracking } from './backend/track'
 
 startTracking()
+applyPrefs()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Atmosphere />
-    <Root />
-    <QuickSettings />
-    <ProgressToasts />
-    <CookieBanner />
+    <PrefsMotion>
+      <Atmosphere />
+      <Root />
+      <QuickSettings />
+      <ProgressToasts />
+      <CookieBanner />
+    </PrefsMotion>
   </StrictMode>,
 )

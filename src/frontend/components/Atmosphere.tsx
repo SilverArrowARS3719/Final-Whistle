@@ -1,12 +1,15 @@
-import { useReducedMotion } from 'motion/react'
+import { useReducedMotionConfig } from 'motion/react'
+import { usePrefs } from '../prefs'
 
 // Fixed positions from the index, so the stands don't reshuffle on every render.
 const rand = (i: number, n: number) => { const x = Math.sin(i * 127.1 + n * 311.7) * 43758.5453; return x - Math.floor(x) }
-const FLASHES = Array.from({ length: 26 }, (_, i) => ({ left: rand(i, 1) * 100, top: 6 + rand(i, 2) * 44, delay: rand(i, 3) * 9, dur: 4 + rand(i, 4) * 6 }))
+const FLASHES = Array.from({ length: 16 }, (_, i) => ({ left: rand(i, 1) * 100, top: 6 + rand(i, 2) * 44, delay: rand(i, 3) * 9, dur: 4 + rand(i, 4) * 6 }))
 
 /** Camera flashes going off in the stands: the crowd is in, even when you play alone. */
 export default function Atmosphere({ fixed = true }: { fixed?: boolean }) {
-  if (useReducedMotion()) return null
+  const reduce = useReducedMotionConfig()
+  const { effects } = usePrefs()
+  if (reduce || !effects) return null
   return (
     <div className={`atmos ${fixed ? 'fixed' : ''}`} aria-hidden>
       {FLASHES.map((f, i) => <i key={i} style={{ left: `${f.left}%`, top: `${f.top}%`, animationDelay: `-${f.delay}s`, animationDuration: `${f.dur}s` }} />)}
@@ -21,7 +24,7 @@ const PIECES = Array.from({ length: 48 }, (_, i) => ({
 
 /** One burst when something is won. Falls once, then it's gone. */
 export function Confetti() {
-  if (useReducedMotion()) return null
+  if (useReducedMotionConfig()) return null
   return (
     <div className="confetti" aria-hidden>
       {PIECES.map((p, i) => (

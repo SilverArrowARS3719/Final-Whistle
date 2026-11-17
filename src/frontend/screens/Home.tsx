@@ -1,4 +1,4 @@
-import { motion, useReducedMotion } from 'motion/react'
+import { motion, useReducedMotionConfig } from 'motion/react'
 import { ArrowRight } from '@phosphor-icons/react'
 import { PLAYERS, type Player } from '../../game/data/players'
 import Pitch from '../components/Pitch'
@@ -25,7 +25,7 @@ const STEPS = [
 const rise = { hidden: { opacity: 0, y: 28 }, show: { opacity: 1, y: 0 } }
 
 export default function Home({ onStart }: { onStart: () => void }) {
-  const reduce = useReducedMotion()
+  const reduce = useReducedMotionConfig()
   const float = (d: number) => (reduce ? {} : { y: [0, -14, 0], transition: { duration: 6, delay: d, repeat: Infinity, ease: 'easeInOut' as const } })
 
   return (
