@@ -6,13 +6,14 @@ import { resetConsent } from '../../backend/consent'
 import { openLegal } from '../screens/Legal'
 import ColourLab from '../theme/ThemeLab'
 import Seg from './Seg'
+import Updates from './Updates'
 import { loadSound, setSound, sfx, type TrackId } from '../../game/engine/sfx'
 import { setPrefs, usePrefs } from '../prefs'
 import { resetOnboarding } from './Onboarding'
 import { resetTips } from './Coach'
 
-type Tab = 'Display' | 'Sound' | 'Colours' | 'Privacy'
-const TABS: Tab[] = ['Display', 'Sound', 'Colours', 'Privacy']
+type Tab = 'Display' | 'Sound' | 'Colours' | 'Privacy' | 'Updates'
+const TABS: Tab[] = ['Display', 'Sound', 'Colours', 'Privacy', 'Updates']
 /** Open the settings sheet from anywhere (the account menu, the profile page). */
 export const openSettings = (tab: Tab = 'Display') => dispatchEvent(new CustomEvent('fw-settings', { detail: tab }))
 
@@ -23,7 +24,7 @@ const TRACKS: { id: TrackId; name: string; desc: string }[] = [
   { id: 'terrace', name: 'Terrace', desc: 'Crowd noise, stomp, stomp, clap.' },
 ]
 
-/** Per-device settings: display, sound, colours, privacy. Mounted once in main.tsx; the corner button and the account menu both open it. */
+/** Per-device settings: display, sound, colours, privacy, and what's new. Mounted once in main.tsx; the corner button and the account menu both open it. */
 export default function QuickSettings() {
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<Tab>('Display')
@@ -64,7 +65,7 @@ export default function QuickSettings() {
                 <button className="btn ghost sm" onClick={() => setOpen(false)} aria-label="Close"><X weight="bold" /></button>
               </header>
               <Seg id="qs-tab" options={TABS} value={tab} onChange={setTab} />
-              {tab === 'Display' ? <DisplayPanel /> : tab === 'Sound' ? <SoundPanel /> : tab === 'Colours' ? <ColourLab /> : <PrivacyPanel />}
+              {tab === 'Display' ? <DisplayPanel /> : tab === 'Sound' ? <SoundPanel /> : tab === 'Colours' ? <ColourLab /> : tab === 'Privacy' ? <PrivacyPanel /> : <Updates />}
             </motion.aside>
           </>
         )}

@@ -419,6 +419,36 @@ begin
   return query select * from events where at > now() - make_interval(days => least(p_days, 90)) order by at limit 100000;
 end $$;
 
+-- ---------- feedback ----------
+-- Players write it through send_feedback() only; nobody can read it from the app. You read it in the Supabase
+-- dashboard (Table Editor → feedback).
+create table if not exists public.feedback (
+  id bigint generated always as identity primary key,
+  at timestamptz not null default now(),
+  user_id uuid references auth.users on delete cascade,
+  name text not null check (length(name) between 1 and 40),
+  message text not null check (length(message) between 3 and 2000),
+  screen text check (screen is null or screen ~ '^[a-z0-9:_-]{1,40}$'),
+  version text check (version is null or version ~ '^[0-9][0-9.]{0,15}$')
+);
+create index if not exists feedback_at on public.feedback (at);
+alter table public.feedback enable row level security;
+revoke all on public.feedback from anon, authenticated;
+
+create or replace function public.send_feedback(p_name text, p_message text, p_screen text default null, p_version text default null) returns void
+language plpgsql security definer set search_path = public as $$
+declare msg text := trim(coalesce(p_message, '')); who uuid := public.me();
+begin
+  if length(msg) < 3 then raise exception 'Write a few words first.'; end if;
+  -- spam limits: 10 an hour per account; visitors without one share 60 an hour between them
+  if (select count(*) from feedback where at > now() - interval '1 hour' and user_id is not distinct from who) >= (case when who is null then 60 else 10 end) then
+    raise exception 'Thanks, that is plenty for now. Try again in an hour.';
+  end if;
+  insert into feedback (user_id, name, message, screen, version)
+  values (who, left(coalesce(nullif(trim(p_name), ''), 'Anonymous'), 40), left(msg, 2000),
+          case when p_screen ~ '^[a-z0-9:_-]{1,40}$' then p_screen end, case when p_version ~ '^[0-9][0-9.]{0,15}$' then p_version end);
+end $$;
+
 -- ---------- delete my data ----------
 -- Removes the caller's account and everything linked to it. Profiles, friendships, invites, league
 -- memberships and daily results go with the user (on delete cascade); their usage events are deleted here,
@@ -429,6 +459,7 @@ declare me uuid := public.me();
 begin
   if me is null then raise exception 'Not signed in'; end if;
   delete from public.events where user_id = me;
+  delete from public.feedback where user_id = me;
   update public.results set players = array_remove(players, me) where me = any(players);
   delete from public.games where host = me and status <> 'finished';
   delete from auth.users where id = me;
@@ -471,6 +502,8 @@ end $$;
 grant execute on function public.forget_device(text) to anon;
 -- …and the identity check every row rule uses (visitors adding usage stats go through it too)
 grant execute on function public.me() to anon, authenticated;
+-- …and sending feedback, which works without an account too (limits are inside the function)
+grant execute on function public.send_feedback(text, text, text, text) to anon;
 
 -- Other players see a username and when the account was made, nothing else (not who the owner is).
 revoke select on public.profiles from authenticated;

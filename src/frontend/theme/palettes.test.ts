@@ -13,5 +13,9 @@ describe('colour lab palettes', () => {
     expect(contrast(t['--dim'], t._bg)).toBeGreaterThanOrEqual(7)
     expect(contrast(t['--faint'], t._bg)).toBeGreaterThanOrEqual(4.5)
     expect(contrast(t['--accent-ink'], t._accent)).toBeGreaterThanOrEqual(4.5)
+    // on the lightest panel too, not just the page
+    expect(contrast(t._accent, t._raised)).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(t['--dim'], t._raised)).toBeGreaterThanOrEqual(6)
+    expect(contrast(t['--faint'], t._raised)).toBeGreaterThanOrEqual(4.5)
   })
 })

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
-import { ArrowRight, ChartLineUp, Check, Compass, GearSix, LockSimple, Medal, Trash, Warning, X } from '@phosphor-icons/react'
+import { ArrowRight, ChartLineUp, ChatCircleText, Check, ClockCounterClockwise, Compass, GearSix, LockSimple, Medal, Trash, Warning, X } from '@phosphor-icons/react'
 import { deleteMyAccount } from '../../backend/auth'
 import { forgetThisDevice } from '../../backend/track'
 import { resetConsent } from '../../backend/consent'
@@ -10,6 +10,7 @@ import { resetOnboarding } from '../components/Onboarding'
 import { resetTips } from '../components/Coach'
 import { openSettings } from '../components/QuickSettings'
 import TwoStep from '../components/TwoStep'
+import { openFeedback } from '../components/Feedback'
 import { ACHIEVEMENTS, levelOf, loadProgress, onProgress, paletteLevel, TITLES, type Progress } from '../../game/engine/progress'
 import { PALETTES } from '../theme/palettes'
 import { dayKey, loadDaily, streakOf } from '../../game/engine/daily'
@@ -123,6 +124,8 @@ export default function Profile({ name, onInsights, signedIn, onDeleted }: Props
             <button onClick={() => openSettings()}><GearSix weight="bold" /> Settings</button>
             <button onClick={() => { resetOnboarding(); resetTips(); location.reload() }}><Compass weight="bold" /> Replay the onboarding</button>
             <button onClick={onInsights}><ChartLineUp weight="bold" /> Game insights</button>
+            <button onClick={() => openSettings('Updates')}><ClockCounterClockwise weight="bold" /> What's new</button>
+            <button onClick={() => openFeedback('profile')}><ChatCircleText weight="bold" /> Send feedback</button>
           </nav>
         </div>
       </div>

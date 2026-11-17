@@ -35,6 +35,7 @@ function Privacy() {
             <tr><td>Games, results, leagues, friends</td><td>To run online games, league tables and friend lists</td><td>Our database</td></tr>
             <tr><td>Saved games, settings, XP, Daily Draft history</td><td>So the game remembers where you were</td><td>This device only</td></tr>
             <tr><td>Anonymous usage stats (only if you say yes)</td><td>Which screens are used and which modes get finished, to decide what to fix. A random id, never your name or email.</td><td>Our database</td></tr>
+            <tr><td>Feedback you send</td><td>Your message, the name you give, the screen you were on and the game version, so we can fix things. Tied to your account if you have one.</td><td>Our database, until it is dealt with</td></tr>
           </tbody>
         </table>
         <p>We do not collect your location, contacts, photos, device identifiers, or anything from other apps.</p>

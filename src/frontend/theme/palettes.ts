@@ -85,12 +85,14 @@ function fade(text: RGB, bg: RGB, min: number): RGB {
 }
 
 export type Tokens = Record<string, string>
-export function deriveTheme(p: Palette): Tokens & { _bg: string; _text: string; _accent: string } {
+export function deriveTheme(p: Palette): Tokens & { _bg: string; _text: string; _accent: string; _raised: string } {
   const pick = (r: Role) => toRgb(p.colors[r].hex)
   const [h, s] = hsl(pick(p.bg))
   const bg = fromHsl(h, Math.min(Math.max(s, 0.18), 0.55), 0.065)
   const text = lift(pick(p.text), bg, 12)
-  const accent = lift(pick(p.accent), bg, 4.5)
+  // text also sits on raised panels and tinted glass, which are lighter than the page; check against the lightest
+  const raised = mix(bg, text, 0.16)
+  const accent = lift(pick(p.accent), raised, 4.5)
   const darkInk = mix(bg, [0, 0, 0], 0.4)
   const accentInk = contrast(accent, darkInk) >= 4.5 ? darkInk : WHITE
   const space = (c: RGB) => c.map((v) => Math.round(v)).join(' ')
@@ -100,15 +102,15 @@ export function deriveTheme(p: Palette): Tokens & { _bg: string; _text: string; 
     '--ink-3': toHex(mix(bg, text, 0.07)),
     '--ink-4': toHex(mix(bg, text, 0.11)),
     '--chalk': toHex(text),
-    '--dim': toHex(fade(text, bg, 7)),
-    '--faint': toHex(fade(text, bg, 4.6)),
+    '--dim': toHex(fade(text, raised, 6)),
+    '--faint': toHex(fade(text, raised, 4.6)),
     '--accent': toHex(accent),
     '--accent-ink': toHex(accentInk),
     '--ink-rgb': space(bg),
     '--chalk-rgb': space(text),
     '--accent-rgb': space(accent),
     '--glow-rgb': space(pick(p.glow ?? p.bg)),
-    _bg: toHex(bg), _text: toHex(text), _accent: toHex(accent),
+    _bg: toHex(bg), _text: toHex(text), _accent: toHex(accent), _raised: toHex(raised),
   }
 }
 

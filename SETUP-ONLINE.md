@@ -81,5 +81,6 @@ The app never shows one player another player's private data. You see it in the 
   from public.profiles p join auth.users u on u.id = p.id order by u.created_at desc;
   ```
 - **In the game**: **Profile → Game insights** shows everyone's usage numbers (see above).
+- **Feedback**: **Table Editor → feedback**. Each row has the message, the name they gave, their account (if signed in), the screen they were on and the game version. Players can send it from the menu, their profile, Settings → Updates, and a pop-up that asks now and then after a finished game. Run `schema.sql` again to create the table.
 
 Keep the dashboard to yourself: never share the service_role key or the database password.

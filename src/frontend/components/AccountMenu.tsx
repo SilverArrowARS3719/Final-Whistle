@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { CaretDown, Compass, GearSix, List, Question, SignOut, Trophy, UserCircle, UsersThree } from '@phosphor-icons/react'
+import { CaretDown, ChatCircleText, ClockCounterClockwise, Compass, GearSix, List, Question, SignOut, Trophy, UserCircle, UsersThree } from '@phosphor-icons/react'
 import { openSettings } from './QuickSettings'
+import { openFeedback } from './Feedback'
 import { openHelp } from './Coach'
 
 type Level = { level: number; title: string; into: number; need: number }
@@ -98,6 +99,8 @@ export default function AccountMenu({ me, handle, level, invites, onProfile, onL
             <div className="acct-group">
               {item(<Question weight="bold" />, 'Help on this page', openHelp, '?')}
               {item(<Compass weight="bold" />, 'Show me around again', onTour)}
+              {item(<ClockCounterClockwise weight="bold" />, "What's new", () => openSettings('Updates'))}
+              {item(<ChatCircleText weight="bold" />, 'Send feedback', () => openFeedback('menu'))}
             </div>
             {me && onSignOut && (
               <div className="acct-group">

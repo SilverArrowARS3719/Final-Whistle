@@ -46,7 +46,8 @@
 html, body { margin: 0; min-height: 100dvh; overflow-x: clip; }
 /* Ambient stadium backdrop on a fixed layer (never repaints on scroll). The 48px photo is stretched,
    so the browser's own upscaling does the blur for free. body stays transparent so the layer shows. */
-body { background: transparent; }
+/* text colour and type set on body too, so a page that hosts the game (an embed, a preview) cannot override them */
+body { background: transparent; color: var(--chalk); font: inherit; }
 body::before {
   content: '';
   position: fixed;
@@ -1374,12 +1375,12 @@ p { line-height: 1.65; }
 .login-bg { position: fixed; inset: 0; z-index: -2; overflow: hidden; background: #050806; }
 .login-bg img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 60%; }
 .login-bg::after { content: ''; position: absolute; inset: 0;
-  background: radial-gradient(70% 60% at 50% 45%, rgb(5 8 6 / 0.25), rgb(5 8 6 / 0.85) 75%), linear-gradient(0deg, rgb(5 8 6 / 0.9), transparent 45%); }
+  background: radial-gradient(70% 60% at 50% 45%, rgb(var(--ink-rgb) / 0.25), rgb(var(--ink-rgb) / 0.85) 75%), linear-gradient(0deg, rgb(var(--ink-rgb) / 0.9), transparent 45%); }
 .privacy-glass { position: fixed; inset: 0; z-index: -1; pointer-events: none; backdrop-filter: blur(22px) saturate(120%); -webkit-backdrop-filter: blur(22px) saturate(120%);
-  background: repeating-linear-gradient(90deg, rgb(5 8 6 / 0.55) 0 2px, rgb(5 8 6 / 0.25) 2px 7px); }
+  background: repeating-linear-gradient(90deg, rgb(var(--ink-rgb) / 0.55) 0 2px, rgb(var(--ink-rgb) / 0.25) 2px 7px); }
 
 .login-card { position: relative; width: min(440px, 100%); padding: var(--pad); border-radius: var(--r-out); display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; overflow: visible;
-  background: linear-gradient(180deg, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0.02) 40%), rgb(9 14 11 / 0.72);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0.02) 40%), rgb(var(--ink-rgb) / 0.72);
   backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%);
   border: 1px solid rgb(255 255 255 / 0.14);
   /* layered in a football's colours: white highlight, black depth, pitch-green glow */
@@ -1474,7 +1475,7 @@ p { line-height: 1.65; }
 
 /* first-time tour, guided by Kicko */
 .tour-scrim { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 20px; perspective: 1400px;
-  background: radial-gradient(60% 60% at 50% 40%, rgb(var(--glow, 210 239 91) / 0.12), transparent 70%), rgb(5 8 6 / 0.78);
+  background: radial-gradient(60% 60% at 50% 40%, rgb(var(--glow, 210 239 91) / 0.12), transparent 70%), rgb(var(--ink-rgb) / 0.78);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 .tour { --r-out: 32px; --pad: 14px; --r-in: calc(var(--r-out) - var(--pad));
   position: relative; width: min(860px, 100%); padding: var(--pad); border-radius: var(--r-out);
@@ -1566,7 +1567,7 @@ p { line-height: 1.65; }
 .privacy-glass { background: repeating-linear-gradient(90deg, rgb(10 30 50 / 0.5) 0 2px, rgb(10 30 50 / 0.2) 2px 7px); }
 
 .login-card { position: relative; width: min(420px, 100%); margin-top: 52px; padding: 60px var(--pad) var(--pad); border-radius: var(--r-out); gap: 16px;
-  background: linear-gradient(180deg, rgb(255 255 255 / 0.12), rgb(255 255 255 / 0.03) 45%), rgb(10 18 14 / 0.78);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.12), rgb(255 255 255 / 0.03) 45%), rgb(var(--ink-rgb) / 0.78);
   backdrop-filter: blur(22px) saturate(140%); -webkit-backdrop-filter: blur(22px) saturate(140%);
   border: 1px solid rgb(255 255 255 / 0.22);
   /* layered in football colours: white highlight, black depth, pitch-green glow underneath */
@@ -1646,7 +1647,7 @@ p { line-height: 1.65; }
 /* ---------- consent and legal ---------- */
 .cookie-banner { position: fixed; left: 50%; bottom: 16px; translate: -50% 0; z-index: 95; width: min(760px, calc(100vw - 24px));
   display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 16px 18px; border-radius: 20px;
-  background: rgb(14 22 17 / 0.94); color: var(--chalk); border: 1px solid rgb(255 255 255 / 0.16);
+  background: rgb(var(--ink-rgb) / 0.94); color: var(--chalk); border: 1px solid rgb(255 255 255 / 0.16);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: 0 20px 50px -14px rgb(0 0 0 / 0.75); }
 .cookie-ico { font-size: 1.8rem; color: var(--amber); }
 .cookie-copy { display: grid; gap: 4px; font-size: 0.86rem; color: var(--dim); }
@@ -1674,7 +1675,7 @@ p { line-height: 1.65; }
 .login-legal { display: inline-block; margin-top: 4px; font-size: 0.78rem; }
 .btn.danger { --bg: var(--hot); color: #fff; border-color: transparent; }
 /* contrast fixes (WCAG AA 4.5:1 for normal text) */
-.login-card { background: linear-gradient(180deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.02) 45%), rgb(10 18 14 / 0.92); }
+.login-card { background: linear-gradient(180deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.02) 45%), rgb(var(--ink-rgb) / 0.92); }
 
 /* Kicko is a render on a dark backdrop: fade its edges into whatever dark surface it sits on */
 .kicko { display: block; filter: none; transform-origin: 50% 90%; }
@@ -1704,13 +1705,13 @@ p { line-height: 1.65; }
 .daily-chip, .daily-chip-copy, .daily-chip-copy > *, .me-copy, .me-copy > * { white-space: nowrap; }
 @media (max-width: 1320px) { .daily-chip-copy > span, .me-copy > span { display: none; } }
 /* league rows sit on a busy photo: solid dark glass and bright text so the names always read */
-.league-row { width: 230px; padding: 10px 14px; color: #fff; font-weight: 600; background: rgb(8 12 10 / 0.86); border: 1px solid rgb(255 255 255 / 0.14);
+.league-row { width: 230px; padding: 10px 14px; color: #fff; font-weight: 600; background: rgb(var(--ink-rgb) / 0.86); border: 1px solid rgb(255 255 255 / 0.14);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 8px 20px -8px rgb(0 0 0 / 0.7); }
 .league-row b { color: #fff; }
 .league-row .num { color: rgb(255 255 255 / 0.85); }
-.league-row.lead { background: rgb(14 22 8 / 0.92); box-shadow: inset 0 0 0 1.5px var(--accent), 0 8px 20px -8px rgb(0 0 0 / 0.7); }
+.league-row.lead { background: rgb(var(--ink-rgb) / 0.92); box-shadow: inset 0 0 0 1.5px var(--accent), 0 8px 20px -8px rgb(0 0 0 / 0.7); }
 .league-row.lead b, .league-row.lead .num { color: var(--accent); }
-.code-chip { background: rgb(8 12 10 / 0.86); border: 1px solid rgb(var(--accent-rgb) / 0.4); }
+.code-chip { background: rgb(var(--ink-rgb) / 0.86); border: 1px solid rgb(var(--accent-rgb) / 0.4); }
 
 /* ---------- top bar v2: wordmark · crumbs · [daily] [?] [account] ---------- */
 .topbar-mid { flex: 1; display: flex; justify-content: center; align-items: center; gap: 14px; min-width: 0; }
@@ -2011,7 +2012,7 @@ button, a, select, input, label { touch-action: manipulation; } /* no double-tap
 @media (max-width: 720px) {
   .btn.glass, .cookie-banner, .league-row, .rec-card, .tv-caption, .react-bar, .tour-skip, .login-back, .welcome-back, .login-card { backdrop-filter: none; -webkit-backdrop-filter: none; }
   .btn.glass { --bg: rgb(var(--ink-rgb) / 0.74); }
-  .login-card { background: rgb(10 18 14 / 0.92); }
+  .login-card { background: rgb(var(--ink-rgb) / 0.92); }
 }
 /* long names in the TV score graphic end in "…" (a grid cell would just cut the letters off) */
 .tv-bug > .tv-team { display: block; line-height: 1.2; max-width: 15ch; }
@@ -2037,3 +2038,50 @@ button, a, select, input, label { touch-action: manipulation; } /* no double-tap
 .two-step-qr { width: 168px; height: 168px; padding: 10px; border-radius: 12px; background: #fff; }
 .two-step-key { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .two-step-key code { min-width: 0; overflow-wrap: anywhere; font-size: 0.85rem; padding: 8px 10px; border-radius: 8px; background: rgb(255 255 255 / 0.06); border: 1px solid var(--line); user-select: all; }
+
+/* the settings sheet scrolls as a whole; a long tab (Colours) must not squeeze the tab bar above it */
+.lab > * { flex-shrink: 0; }
+
+/* the Daily Draft and resume pills stay one line: wrapped, the round ends crowd the text */
+.daily-pill, .resume { flex-wrap: nowrap; padding-left: 18px; max-width: 100%; }
+.daily-pill > span:not(.streak), .resume { min-width: 0; }
+.daily-pill > span:not(.streak) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.daily-pill b, .resume b, .daily-pill > svg, .daily-pill .streak { flex-shrink: 0; }
+
+/* ---------- feedback pop-up: who it's from on top, the message underneath ---------- */
+.fb { gap: 16px; }
+.del.fb .fb-who { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+.fb-badge { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; font: 800 1.5rem var(--display); color: var(--accent-ink); background: var(--accent); }
+.fb-id { display: grid; gap: 3px; min-width: 0; }
+.fb-id b { font-size: 1.05rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fb-id small { color: var(--dim); font-size: 0.78rem; }
+.fb-name { width: 100%; padding: 7px 10px; font-size: 0.95rem; }
+.fb .coach-x { position: static; }
+.fb-ask { display: grid; gap: 8px; }
+.fb-ask h3 { font-size: 1.7rem; }
+.fb-text { width: 100%; min-height: 128px; resize: vertical; padding: 12px 14px; font: 400 0.95rem/1.5 var(--body); color: var(--chalk);
+  background: var(--ink); border: 1px solid var(--line-2); border-radius: var(--r-input); }
+.fb-text::placeholder { color: var(--faint); }
+.fb-text:focus { outline: none; border-color: var(--accent); background: var(--ink-3); }
+.fb-count { justify-self: end; }
+.fb .del-foot { flex-wrap: wrap; align-items: center; }
+.fb-never { margin-right: auto; }
+.fb-thanks { display: grid; justify-items: center; text-align: center; gap: 10px; padding: 8px 0 12px; }
+
+/* ---------- Settings → Updates: a timeline of versions ---------- */
+.upd-now { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; padding: 14px 16px; border-radius: 12px; background: var(--ink-3); border: 1px solid var(--line); }
+.upd-now b { font-size: 1rem; }
+.upd-now .btn { margin-left: auto; }
+.upd-line { list-style: none; margin: 0; padding: 0 0 0 24px; position: relative; display: grid; gap: 22px; }
+.upd-line::before { content: ''; position: absolute; left: 6px; top: 8px; bottom: 8px; width: 2px; border-radius: 2px; background: var(--line-2); }
+.upd-line > li { position: relative; display: grid; gap: 4px; }
+.upd-dot { position: absolute; left: -24px; top: 4px; width: 14px; height: 14px; border-radius: 50%; background: var(--ink-2); border: 2px solid rgb(var(--chalk-rgb) / 0.3); }
+.upd-line > li.latest .upd-dot { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 4px rgb(var(--accent-rgb) / 0.18); }
+.upd-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.upd-head b { font-size: 0.85rem; color: var(--accent); }
+.upd-title { font: 800 1.3rem var(--display); font-stretch: 75%; text-transform: uppercase; line-height: 1; }
+.upd-tag { align-self: center; padding: 2px 8px; border-radius: 999px; font: 700 0.66rem var(--body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-ink); background: var(--accent); }
+.upd-line ul { margin: 2px 0 0; padding-left: 1.1em; display: grid; gap: 3px; font-size: 0.88rem; color: var(--dim); }
+/* five tabs in the settings sheet: share the width instead of scrolling the last one out of view */
+.lab .seg { width: 100%; }
+.lab .seg button { flex: 1 1 auto; padding-inline: 10px; }

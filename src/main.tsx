@@ -6,6 +6,7 @@ import QuickSettings from './frontend/components/QuickSettings.tsx'
 import ProgressToasts from './frontend/components/ProgressToasts.tsx'
 import Atmosphere from './frontend/components/Atmosphere.tsx'
 import CookieBanner from './frontend/components/CookieBanner.tsx'
+import Feedback from './frontend/components/Feedback.tsx'
 import { applyPrefs, PrefsMotion } from './frontend/prefs.tsx'
 import { startTracking } from './backend/track'
 
@@ -18,6 +19,7 @@ createRoot(document.getElementById('root')!).render(
       <Atmosphere />
       <Root />
       <QuickSettings />
+      <Feedback />
       <ProgressToasts />
       <CookieBanner />
     </PrefsMotion>
